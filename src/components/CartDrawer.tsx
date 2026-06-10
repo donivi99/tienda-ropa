@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function CartDrawer({ open, onClose }: Props) {
-  const { items, totalAmount, updateQuantity, removeItem } = useCart();
+  const { items, subtotal, shippingFee, totalFinal, deliveryMethod, updateQuantity, removeItem } = useCart();
   const { user } = useAuth();
 
   if (!open) return null;
@@ -66,9 +66,19 @@ export default function CartDrawer({ open, onClose }: Props) {
 
         {items.length > 0 && (
           <div className="border-t border-[#2a2520] p-4 space-y-3">
-            <div className="flex justify-between text-lg font-bold">
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-[#a89a82]">Subtotal</span>
+                <span className="text-[#f5e6c8]">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-[#a89a82]">Envío</span>
+                <span className="text-[#f5e6c8]">${deliveryMethod ? shippingFee.toFixed(2) : '-'}</span>
+              </div>
+            </div>
+            <div className="border-t border-[#2a2520] pt-2 flex justify-between text-lg font-bold">
               <span className="text-[#f5e6c8]">Total</span>
-              <span className="text-[#d4af37]">${totalAmount.toFixed(2)}</span>
+              <span className="text-[#d4af37]">${deliveryMethod ? totalFinal.toFixed(2) : subtotal.toFixed(2)}</span>
             </div>
             <Link
               to={user ? '/finalizar-compra' : '/iniciar-sesion'}

@@ -13,9 +13,14 @@ const router = Router();
 
 router.post('/', authMiddleware, validate(validateOrder), async (req: AuthRequest, res) => {
   try {
+    if (!req.user?.email) {
+      res.status(400).json({ error: 'El usuario no tiene email asociado' });
+      return;
+    }
+
     const order = await createOrder(
       req.user!.uid,
-      req.user!.email!,
+      req.user.email,
       req.body.userName || 'Usuario',
       req.body
     );

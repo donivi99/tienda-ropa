@@ -257,7 +257,7 @@ export default function AdminProducts() {
                 <div>
                   <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Tallas</label>
                   <div className="flex flex-wrap gap-2">
-                    {['XS', 'S', 'M', 'L', 'XL', 'XXL', '28', '30', '32', '34', '36'].map((size) => (
+                    {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((size) => (
                       <button
                         key={size}
                         type="button"

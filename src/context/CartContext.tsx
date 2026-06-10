@@ -1,23 +1,34 @@
 import { createContext, useContext, useReducer, type ReactNode } from 'react';
-import type { CartItem } from '../types';
+import type { CartItem, ShippingAddress } from '../types';
+import { SHIPPING_FEE } from '../types';
 
 interface CartState {
   items: CartItem[];
+  shippingAddress: ShippingAddress | null;
+  deliveryMethod: 'domicilio' | null;
 }
 
 type CartAction =
   | { type: 'ADD_ITEM'; payload: Omit<CartItem, 'quantity'> & { quantity?: number } }
   | { type: 'REMOVE_ITEM'; payload: { productId: string; selectedSize: string; selectedColor: string } }
   | { type: 'UPDATE_QUANTITY'; payload: { productId: string; selectedSize: string; selectedColor: string; quantity: number } }
+  | { type: 'SET_DELIVERY_METHOD'; payload: 'domicilio' }
+  | { type: 'SET_SHIPPING_ADDRESS'; payload: ShippingAddress }
   | { type: 'CLEAR_CART' };
 
 interface CartContextType {
   items: CartItem[];
   totalItems: number;
-  totalAmount: number;
+  subtotal: number;
+  shippingFee: number;
+  totalFinal: number;
+  deliveryMethod: 'domicilio' | null;
+  shippingAddress: ShippingAddress | null;
   addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
   removeItem: (productId: string, selectedSize: string, selectedColor: string) => void;
   updateQuantity: (productId: string, selectedSize: string, selectedColor: string, quantity: number) => void;
+  setDeliveryMethod: (method: 'domicilio') => void;
+  setShippingAddress: (address: ShippingAddress) => void;
   clearCart: () => void;
 }
 
@@ -85,8 +96,14 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       };
     }
 
+    case 'SET_DELIVERY_METHOD':
+      return { ...state, deliveryMethod: action.payload };
+
+    case 'SET_SHIPPING_ADDRESS':
+      return { ...state, shippingAddress: action.payload };
+
     case 'CLEAR_CART':
-      return { ...state, items: [] };
+      return { items: [], shippingAddress: null, deliveryMethod: null };
 
     default:
       return state;
@@ -96,7 +113,11 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  const [state, dispatch] = useReducer(cartReducer, {
+    items: [],
+    shippingAddress: null,
+    deliveryMethod: null,
+  });
 
   const addItem = (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
     dispatch({ type: 'ADD_ITEM', payload: item });
@@ -110,20 +131,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'UPDATE_QUANTITY', payload: { productId, selectedSize, selectedColor, quantity } });
   };
 
+  const setDeliveryMethod = (method: 'domicilio') => {
+    dispatch({ type: 'SET_DELIVERY_METHOD', payload: method });
+  };
+
+  const setShippingAddress = (address: ShippingAddress) => {
+    dispatch({ type: 'SET_SHIPPING_ADDRESS', payload: address });
+  };
+
   const clearCart = () => dispatch({ type: 'CLEAR_CART' });
 
   const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmount = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingFee = state.deliveryMethod === 'domicilio' && state.items.length > 0 ? SHIPPING_FEE : 0;
+  const totalFinal = subtotal + shippingFee;
 
   return (
     <CartContext.Provider
       value={{
         items: state.items,
         totalItems,
-        totalAmount,
+        subtotal,
+        shippingFee,
+        totalFinal,
+        deliveryMethod: state.deliveryMethod,
+        shippingAddress: state.shippingAddress,
         addItem,
         removeItem,
         updateQuantity,
+        setDeliveryMethod,
+        setShippingAddress,
         clearCart,
       }}
     >

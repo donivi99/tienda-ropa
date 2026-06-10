@@ -1,5 +1,6 @@
 import { getAdminDb } from '../config/firebase.js';
 import type { OrderInput } from '../types/index.js';
+import { SHIPPING_FEE } from '../types/index.js';
 
 export async function createOrder(
   userId: string,
@@ -8,22 +9,50 @@ export async function createOrder(
   data: OrderInput
 ) {
   const db = getAdminDb();
-  const total = data.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const orderRef = db.collection('orders').doc();
 
-  const docRef = await db.collection('orders').add({
-    userId,
-    userEmail,
-    userName,
-    items: data.items,
-    total,
-    status: 'pagado',
-    shippingAddress: data.shippingAddress,
-    paymentMethod: data.paymentMethod,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  const subtotal = data.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingFee = data.items.length > 0 ? SHIPPING_FEE : 0;
+  const total = subtotal + shippingFee;
+
+  await db.runTransaction(async (transaction) => {
+    for (const item of data.items) {
+      const productRef = db.collection('products').doc(item.productId);
+      const productSnap = await transaction.get(productRef);
+
+      if (!productSnap.exists) {
+        throw new Error(`Producto ${item.name} no encontrado`);
+      }
+
+      const productData = productSnap.data() as { stock?: Record<string, number> } | undefined;
+      const available = productData?.stock?.[item.selectedSize] ?? 0;
+
+      if (available < item.quantity) {
+        throw new Error(`Stock insuficiente para ${item.name} (talla ${item.selectedSize})`);
+      }
+
+      transaction.update(productRef, {
+        [`stock.${item.selectedSize}`]: available - item.quantity,
+      });
+    }
+
+    transaction.set(orderRef, {
+      userId,
+      userEmail,
+      userName,
+      items: data.items,
+      subtotal,
+      shippingFee,
+      total,
+      status: 'pagado',
+      shippingAddress: data.shippingAddress,
+      deliveryMethod: 'domicilio',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
   });
 
-  return { id: docRef.id, total, status: 'pagado' };
+  return { id: orderRef.id, subtotal, shippingFee, total, status: 'pagado' };
 }
 
 export async function getOrdersByUser(userId: string) {

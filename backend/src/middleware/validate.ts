@@ -28,8 +28,23 @@ export function validateProduct(body: Record<string, unknown>): string | null {
 
 export function validateOrder(body: Record<string, unknown>): string | null {
   if (!Array.isArray(body.items) || body.items.length === 0) return 'Al menos un producto requerido';
-  if (!body.shippingAddress) return 'Dirección de envío requerida';
+  if (body.deliveryMethod !== 'domicilio') return 'Método de entrega inválido';
+  if (typeof body.subtotal !== 'number' || body.subtotal <= 0) return 'Subtotal inválido';
+  if (typeof body.shippingFee !== 'number' || body.shippingFee < 0) return 'Coste de envío inválido';
+  if (typeof body.totalAmount !== 'number' || body.totalAmount <= 0) return 'Total inválido';
+
+  if (!body.shippingAddress || typeof body.shippingAddress !== 'object') return 'Dirección de envío requerida';
   const addr = body.shippingAddress as Record<string, unknown>;
-  if (!addr.calle || !addr.ciudad || !addr.codigoPostal) return 'Dirección incompleta';
+
+  if (!addr.nombre || typeof addr.nombre !== 'string' || (addr.nombre as string).trim().length < 2) return 'Nombre requerido';
+  if (!addr.telefono || typeof addr.telefono !== 'string' || (addr.telefono as string).trim().length < 6) return 'Teléfono inválido';
+  if (!addr.calle || typeof addr.calle !== 'string' || (addr.calle as string).trim().length < 3) return 'Calle requerida';
+  if (!addr.ciudad || typeof addr.ciudad !== 'string' || (addr.ciudad as string).trim().length < 2) return 'Ciudad requerida';
+  if (!addr.provincia || typeof addr.provincia !== 'string' || (addr.provincia as string).trim().length < 2) return 'Provincia requerida';
+
+  if (!addr.codigoPostal || typeof addr.codigoPostal !== 'string') return 'Código postal requerido';
+  const cp = addr.codigoPostal as string;
+  if (!/^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/.test(cp.trim())) return 'Código postal español inválido';
+
   return null;
 }

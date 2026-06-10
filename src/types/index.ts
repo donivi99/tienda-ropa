@@ -22,19 +22,30 @@ export interface CartItem {
   price: number;
 }
 
+export interface ShippingAddress {
+  nombre: string;
+  telefono: string;
+  calle: string;
+  ciudad: string;
+  provincia: string;
+  codigoPostal: string;
+  referencias?: string;
+}
+
 export interface Order {
   id: string;
   userId: string;
   items: CartItem[];
+  subtotal: number;
+  shippingFee: number;
   totalAmount: number;
-  shippingAddress: {
-    calle: string;
-    ciudad: string;
-    codigoPostal: string;
-  };
-  status: 'pagado' | 'enviado' | 'entregado';
+  shippingAddress: ShippingAddress;
+  deliveryMethod: 'domicilio';
+  status: 'pagado' | 'enviado' | 'entregado' | 'cancelado';
   createdAt: Date;
 }
+
+export const SHIPPING_FEE = 4.99;
 
 export interface CreatorMessage {
   id: string;

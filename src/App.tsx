@@ -9,6 +9,7 @@ import Home from './pages/Home';
 import CollectionPage from './components/CollectionPage';
 import ProductDetail from './pages/ProductDetail';
 import Checkout from './pages/Checkout';
+import OrderConfirmation from './pages/OrderConfirmation';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import SeedPage from './pages/Seed';
@@ -32,6 +33,7 @@ export default function App() {
               <Route path="/categoria-destacados" element={<Home />} />
               <Route path="/producto/:id" element={<ProductDetail />} />
               <Route path="/finalizar-compra" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+              <Route path="/pedido-confirmado" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
               <Route path="/iniciar-sesion" element={<Login />} />
               <Route path="/sobre-nosotros" element={<SobreNosotros />} />
               <Route path="/mi-cuenta" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

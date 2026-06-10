@@ -23,20 +23,33 @@ export interface ProductInput {
   stock: Record<string, number>;
 }
 
-export interface OrderInput {
-  items: {
-    productId: string;
-    name: string;
-    price: number;
-    size: string;
-    color: string;
-    quantity: number;
-    image: string;
-  }[];
-  shippingAddress: {
-    calle: string;
-    ciudad: string;
-    codigoPostal: string;
-  };
-  paymentMethod: string;
+export interface OrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  selectedSize: string;
+  selectedColor: string;
+  quantity: number;
+  image: string;
 }
+
+export interface ShippingAddress {
+  nombre: string;
+  telefono: string;
+  calle: string;
+  ciudad: string;
+  provincia: string;
+  codigoPostal: string;
+  referencias?: string;
+}
+
+export interface OrderInput {
+  items: OrderItem[];
+  shippingAddress: ShippingAddress;
+  deliveryMethod: 'domicilio';
+  subtotal: number;
+  shippingFee: number;
+  totalAmount: number;
+}
+
+export const SHIPPING_FEE = 4.99;
