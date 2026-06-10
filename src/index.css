@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0a;
+  --color-bg-brown: #4a3d2e;
+  --color-bg-green: #4a6b5a;
+  --color-cream: #f5e6c8;
+  --color-gold: #d4af37;
+  --color-gold-dark: #b8962e;
+  --color-text: #f5e6c8;
+  --color-text-muted: #a89a82;
+  --color-border: #2a2520;
+  --color-surface: #141210;
+  --color-surface-hover: #1e1b18;
+}
+
+body {
+  margin: 0;
+  font-family: 'Merriweather', Georgia, serif;
+  background-color: var(--color-bg);
+  color: var(--color-cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+::selection {
+  background-color: var(--color-gold);
+  color: var(--color-bg);
+}
+
+.price-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+}
+
+.price-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: transparent;
+}
+
+.price-range::-moz-range-track {
+  height: 2px;
+  background: transparent;
+  border: 0;
+}
+
+.price-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -7px;
+  border-radius: 9999px;
+  background: #d4af37;
+  border: 2px solid #f5e6c8;
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.12);
+}
+
+.price-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #d4af37;
+  border: 2px solid #f5e6c8;
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.12);
+}
