@@ -5,6 +5,7 @@ import { getFirebaseDb } from '../config/firebase';
 import { useCart } from '../context/CartContext';
 import type { Product } from '../types';
 import { getEffectivePrice } from '../utils/colorMap';
+import ProductPrice, { DiscountBadge } from '../components/ProductPrice';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -67,13 +68,18 @@ export default function ProductDetail() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="grid md:grid-cols-2 gap-8">
-        <div>
-          <div className="aspect-[3/4] bg-[#1e1b18] rounded-lg overflow-hidden">
+        <div className="relative">
+          <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-[#1e1b18]">
             <img
               src={product.images[currentImage]}
               alt={product.name}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
             />
+            {product.discountPercent != null && product.discountPercent > 0 && (
+              <div className="absolute right-4 top-4">
+                <DiscountBadge percent={product.discountPercent} variant="solid" />
+              </div>
+            )}
           </div>
           {product.images.length > 1 && (
             <div className="flex gap-2 mt-4">
@@ -99,17 +105,16 @@ export default function ProductDetail() {
               <span className="text-sm text-[#a89a82]">·</span>
               <p className="text-sm text-[#a89a82] capitalize">{product.genero}</p>
             </div>
-            <h1 className="text-3xl font-bold text-[#f5e6c8] mt-1" style={{ fontFamily: '"Bodoni Moda", serif' }}>{product.name}</h1>
-            <div className="flex items-center gap-3 mt-2">
-              {product.discountPercent ? (
-                <>
-                  <span className="text-2xl font-bold text-[#d4af37]">${getEffectivePrice(product.price, product.discountPercent).toFixed(2)}</span>
-                  <span className="text-lg text-[#a89a82] line-through">${product.price.toFixed(2)}</span>
-                  <span className="text-sm text-green-400 font-medium">-{product.discountPercent}%</span>
-                </>
-              ) : (
-                <p className="text-2xl font-bold text-[#d4af37]">${product.price.toFixed(2)}</p>
-              )}
+            <h1 className="mt-1 text-3xl font-bold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+              {product.name}
+            </h1>
+            <div className="mt-4 rounded-xl border border-[#2a2520] bg-[#141210] px-4 py-3">
+              <ProductPrice
+                price={product.price}
+                discountPercent={product.discountPercent}
+                size="lg"
+                layout="inline"
+              />
             </div>
           </div>
 

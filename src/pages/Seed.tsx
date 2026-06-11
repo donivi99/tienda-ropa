@@ -17,7 +17,8 @@ function prepareProduct(product: Omit<Product, 'id' | 'productoId'>, index: numb
     productoId: formatProductoId(index + 1),
     colors: product.colors.map((c) => c.toLowerCase()),
   };
-  if (/premium/i.test(product.name) && prepared.discountPercent == null) {
+  const isPremium = /premium/i.test(product.name) || /premium/i.test(product.description);
+  if (isPremium && prepared.discountPercent == null) {
     prepared.discountPercent = 10;
   }
   return prepared;
@@ -333,7 +334,7 @@ export default function SeedPage() {
           <li>Tirantes: 12 productos (hombre, mujer y niños)</li>
           <li>Niños: 12 productos (camisetas y pantalones)</li>
           <li>Colores normalizados según <code className="text-[#d4af37]">colorMap.ts</code></li>
-          <li>Descuento 10% en productos Premium</li>
+          <li>Descuento 10% en productos Premium (nombre o descripción)</li>
         </ul>
       </div>
 

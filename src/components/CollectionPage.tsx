@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, query, startAfter, where, type QueryDocumentSnapshot } from 'firebase/firestore';
 import type { Product } from '../types';
 import { productMatchesColorFilters } from '../utils/colorMap';
+import { getProductSalePrice, hasActiveDiscount, productMatchesPrenda } from '../utils/productFilters';
 import { getFirebaseDb } from '../config/firebase';
 import ProductGrid from './ProductGrid';
 import FilterSidebar, { type Filters } from './FilterSidebar';
@@ -9,9 +10,11 @@ import FilterSidebar, { type Filters } from './FilterSidebar';
 const PAGE_SIZE = 50;
 
 const DEFAULT_FILTERS: Filters = {
+  prenda: [],
   tipo: [],
   sizes: [],
   colors: [],
+  soloDescuento: false,
   priceRange: [0, 999],
 };
 
@@ -125,27 +128,43 @@ export default function CollectionPage({ category }: CollectionPageProps) {
 
   const priceStats = useMemo(() => {
     if (allProducts.length === 0) return { min: 0, max: 100 };
-    const prices = allProducts.map((p) => p.price);
+    const prices = allProducts.map((p) => getProductSalePrice(p));
     return { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
   }, [allProducts]);
 
   const filteredProducts = useMemo(() => {
     let result = [...allProducts];
 
+    if (filters.prenda.length > 0) {
+      result = result.filter((p) =>
+        filters.prenda.some((prenda) => productMatchesPrenda(p.category, prenda))
+      );
+    }
     if (filters.tipo.length > 0) result = result.filter((p) => filters.tipo.includes(p.tipo || ''));
     if (filters.sizes.length > 0) result = result.filter((p) => p.sizes?.some((s) => filters.sizes.includes(s)));
     if (filters.colors.length > 0) {
       result = result.filter((p) => productMatchesColorFilters(p.colors, filters.colors));
     }
+    if (filters.soloDescuento) {
+      result = result.filter((p) => hasActiveDiscount(p));
+    }
     if (filters.priceRange[0] > priceStats.min || filters.priceRange[1] < priceStats.max) {
-      result = result.filter((p) => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]);
+      result = result.filter((p) => {
+        const price = getProductSalePrice(p);
+        return price >= filters.priceRange[0] && price <= filters.priceRange[1];
+      });
     }
 
-    return result.sort((a, b) => a.price - b.price);
-  }, [allProducts, filters]);
+    return result.sort((a, b) => getProductSalePrice(a) - getProductSalePrice(b));
+  }, [allProducts, filters, priceStats]);
 
   const activeFiltersCount =
-    filters.tipo.length + filters.sizes.length + filters.colors.length + (filters.priceRange[0] > priceStats.min || filters.priceRange[1] < priceStats.max ? 1 : 0);
+    filters.prenda.length +
+    filters.tipo.length +
+    filters.sizes.length +
+    filters.colors.length +
+    (filters.soloDescuento ? 1 : 0) +
+    (filters.priceRange[0] > priceStats.min || filters.priceRange[1] < priceStats.max ? 1 : 0);
 
   const handleFilterChange = (newFilters: Filters) => {
     setFilters({
@@ -158,7 +177,14 @@ export default function CollectionPage({ category }: CollectionPageProps) {
   };
 
   const handleResetFilters = () => {
-    setFilters({ tipo: [], sizes: [], colors: [], priceRange: [priceStats.min, priceStats.max] });
+    setFilters({
+      prenda: [],
+      tipo: [],
+      sizes: [],
+      colors: [],
+      soloDescuento: false,
+      priceRange: [priceStats.min, priceStats.max],
+    });
   };
 
   return (

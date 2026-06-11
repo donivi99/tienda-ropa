@@ -1,13 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
-import { MAIN_COLORS } from '../utils/colorMap';
+import { MAIN_COLORS, getEffectivePrice } from '../utils/colorMap';
+import type { PrendaFilter } from '../utils/productFilters';
+import { collectProductSizes } from '../utils/sizes';
 
 export interface Filters {
+  prenda: PrendaFilter[];
   tipo: string[];
   sizes: string[];
   colors: string[];
+  soloDescuento: boolean;
   priceRange: [number, number];
 }
+
+const PRENDA_OPTIONS: { value: PrendaFilter; label: string }[] = [
+  { value: 'camiseta', label: 'Camiseta' },
+  { value: 'pantalon', label: 'Pantalón' },
+];
 
 interface FilterSidebarProps {
   products: Product[];
@@ -71,26 +80,25 @@ export default function FilterSidebar({
     [products]
   );
 
-  const availableSizes = useMemo(() => {
-    const sizes = new Set<string>();
-    products.forEach((p) => p.sizes?.forEach((s) => {
-      if (!/^\d+$/.test(s)) sizes.add(s);
-    }));
-    return Array.from(sizes).sort();
-  }, [products]);
+  const availableSizes = useMemo(() => collectProductSizes(products), [products]);
 
   const priceStats = useMemo(() => {
     if (products.length === 0) return { min: 0, max: 100 };
-    const prices = products.map((p) => p.price);
+    const prices = products.map((p) => getEffectivePrice(p.price, p.discountPercent));
     return { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
   }, [products]);
 
-  const toggleArrayFilter = (key: 'tipo' | 'sizes' | 'colors', value: string) => {
-    const current = filters[key];
+  const toggleArrayFilter = (key: 'prenda' | 'tipo' | 'sizes' | 'colors', value: string) => {
+    const current = filters[key] as string[];
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
     onFilterChange({ ...filters, [key]: next });
+  };
+
+  const prendaLabels: Record<PrendaFilter, string> = {
+    camiseta: 'Camiseta',
+    pantalon: 'Pantalón',
   };
 
   const tipoLabels: Record<string, string> = {
@@ -167,6 +175,35 @@ export default function FilterSidebar({
         {/* Active filter chips */}
         {activeFiltersCount > 0 && (
           <div className="mb-4 flex flex-wrap gap-2">
+            {filters.prenda.map((p) => (
+              <span
+                key={`prenda-${p}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#d4af37]/25 bg-[#d4af37]/8 px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.18em] text-[#d4af37]"
+              >
+                {prendaLabels[p]}
+                <button
+                  onClick={() => toggleArrayFilter('prenda', p)}
+                  className="ml-0.5 rounded-full hover:bg-[#d4af37]/20 p-0.5 transition-colors"
+                >
+                  <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            ))}
+            {filters.soloDescuento && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#d4af37]/25 bg-[#d4af37]/8 px-2.5 py-1 text-[0.65rem] uppercase tracking-[0.18em] text-[#d4af37]">
+                En oferta
+                <button
+                  onClick={() => onFilterChange({ ...filters, soloDescuento: false })}
+                  className="ml-0.5 rounded-full hover:bg-[#d4af37]/20 p-0.5 transition-colors"
+                >
+                  <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            )}
             {filters.tipo.map((t) => (
               <span
                 key={`tipo-${t}`}
@@ -231,6 +268,28 @@ export default function FilterSidebar({
           </div>
         )}
 
+        {/* Prenda - Camiseta / Pantalón */}
+        <CollapsibleSection title="Prenda">
+          <div className="flex flex-wrap gap-2">
+            {PRENDA_OPTIONS.map(({ value, label }) => {
+              const active = filters.prenda.includes(value);
+              return (
+                <button
+                  key={value}
+                  onClick={() => toggleArrayFilter('prenda', value)}
+                  className={`rounded-full px-5 py-2 text-xs font-medium uppercase tracking-[0.2em] transition-all duration-200 ${
+                    active
+                      ? 'bg-[#d4af37] text-[#0a0a0a] shadow-[0_0_20px_rgba(212,175,55,0.2)]'
+                      : 'border border-[#2a2520] text-[#a89a82] hover:border-[#d4af37]/50 hover:text-[#f5e6c8]'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </CollapsibleSection>
+
         {/* Tipo - Pill buttons */}
         <CollapsibleSection title="Tipo">
           <div className="flex flex-wrap gap-2">
@@ -273,6 +332,21 @@ export default function FilterSidebar({
               );
             })}
           </div>
+        </CollapsibleSection>
+
+        {/* Ofertas */}
+        <CollapsibleSection title="Ofertas">
+          <button
+            type="button"
+            onClick={() => onFilterChange({ ...filters, soloDescuento: !filters.soloDescuento })}
+            className={`rounded-full px-5 py-2 text-xs font-medium uppercase tracking-[0.2em] transition-all duration-200 ${
+              filters.soloDescuento
+                ? 'bg-[#d4af37] text-[#0a0a0a] shadow-[0_0_20px_rgba(212,175,55,0.2)]'
+                : 'border border-[#2a2520] text-[#a89a82] hover:border-[#d4af37]/50 hover:text-[#f5e6c8]'
+            }`}
+          >
+            Solo con descuento
+          </button>
         </CollapsibleSection>
 
         {/* Color - MAIN_COLORS */}
