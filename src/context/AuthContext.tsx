@@ -45,8 +45,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const token = await firebaseUser.getIdToken();
           localStorage.setItem('auth_token', token);
-          const userProfile = await api.get<UserProfile>('/api/auth/me');
-          setProfile(userProfile);
+
+          let userProfile: UserProfile | null = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              userProfile = await api.get<UserProfile>('/api/auth/me');
+              break;
+            } catch {
+              if (attempt < 2) {
+                await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+              }
+            }
+          }
+
+          if (userProfile) {
+            setProfile(userProfile);
+          } else {
+            setProfile(null);
+            localStorage.removeItem('auth_token');
+          }
         } catch {
           setProfile(null);
           localStorage.removeItem('auth_token');

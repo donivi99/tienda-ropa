@@ -1,19 +1,26 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import { getFirebaseAuth, getFirebaseDb } from '../config/firebase';
+import { getFirebaseAuth } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 import CreatorContact from '../components/CreatorContact';
 
-type Tab = 'overview' | 'orders' | 'contact';
+type Tab = 'overview' | 'orders' | 'data' | 'contact';
 
 interface UserData {
-  nombre: string;
-  telefono: string;
-  ciudad: string;
-  direccion: string;
+  uid: string;
   email: string;
+  nombre: string;
+  role: string;
+  phone?: string;
+  address?: {
+    calle?: string;
+    ciudad?: string;
+    provincia?: string;
+    codigoPostal?: string;
+    referencias?: string;
+  };
 }
 
 export default function Profile() {
@@ -22,18 +29,79 @@ export default function Profile() {
   const [tab, setTab] = useState<Tab>('overview');
   const [userData, setUserData] = useState<UserData | null>(null);
 
+  const [phone, setPhone] = useState('');
+  const [calle, setCalle] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [provincia, setProvincia] = useState('');
+  const [codigoPostal, setCodigoPostal] = useState('');
+  const [referencias, setReferencias] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
   useEffect(() => {
     if (!user) return;
-    getDoc(doc(getFirebaseDb(), 'users', user.uid)).then((snap) => {
-      if (snap.exists()) {
-        setUserData(snap.data() as UserData);
-      }
-    });
+    api.get<UserData>('/api/auth/me')
+      .then(setUserData)
+      .catch(() => setUserData(null));
   }, [user]);
+
+  useEffect(() => {
+    if (!userData) return;
+    setPhone(userData.phone || '');
+    setCalle(userData.address?.calle || '');
+    setCiudad(userData.address?.ciudad || '');
+    setProvincia(userData.address?.provincia || '');
+    setCodigoPostal(userData.address?.codigoPostal || '');
+    setReferencias(userData.address?.referencias || '');
+  }, [userData]);
 
   const handleLogout = async () => {
     await signOut(getFirebaseAuth());
     navigate('/');
+  };
+
+  const handleSaveData = async () => {
+    if (!phone.trim() || phone.trim().length < 6) {
+      setSaveMsg({ type: 'err', text: 'Teléfono inválido (mínimo 6 caracteres)' });
+      return;
+    }
+    if (!calle.trim() || calle.trim().length < 3) {
+      setSaveMsg({ type: 'err', text: 'Calle inválida (mínimo 3 caracteres)' });
+      return;
+    }
+    if (!ciudad.trim() || ciudad.trim().length < 2) {
+      setSaveMsg({ type: 'err', text: 'Ciudad inválida (mínimo 2 caracteres)' });
+      return;
+    }
+    if (!provincia.trim() || provincia.trim().length < 2) {
+      setSaveMsg({ type: 'err', text: 'Provincia inválida (mínimo 2 caracteres)' });
+      return;
+    }
+    if (!/^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/.test(codigoPostal.trim())) {
+      setSaveMsg({ type: 'err', text: 'Código postal inválido' });
+      return;
+    }
+
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const updated = await api.put<UserData>('/api/auth/me', {
+        phone: phone.trim(),
+        address: {
+          calle: calle.trim(),
+          ciudad: ciudad.trim(),
+          provincia: provincia.trim(),
+          codigoPostal: codigoPostal.trim(),
+          referencias: referencias.trim() || undefined,
+        },
+      });
+      setUserData(updated);
+      setSaveMsg({ type: 'ok', text: 'Datos guardados correctamente' });
+    } catch {
+      setSaveMsg({ type: 'err', text: 'Error al guardar los datos' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -82,6 +150,21 @@ export default function Profile() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
                     Mis Pedidos
+                  </span>
+                </button>
+                <button
+                  onClick={() => { setTab('data'); setSaveMsg(null); }}
+                  className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                    tab === 'data'
+                      ? 'bg-[#d4af37] text-[#0a0a0a]'
+                      : 'text-[#a89a82] hover:bg-[#1e1b18] hover:text-[#f5e6c8]'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Mis Datos
                   </span>
                 </button>
                 <button
@@ -176,17 +259,23 @@ export default function Profile() {
                         <p className="text-sm text-[#f5e6c8] mt-1">{userData.nombre}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-[#a89a82] uppercase tracking-wider">Teléfono</p>
-                        <p className="text-sm text-[#f5e6c8] mt-1">{userData.telefono}</p>
+                        <p className="text-xs text-[#a89a82] uppercase tracking-wider">Email</p>
+                        <p className="text-sm text-[#f5e6c8] mt-1">{userData.email}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-[#a89a82] uppercase tracking-wider">Ciudad</p>
-                        <p className="text-sm text-[#f5e6c8] mt-1">{userData.ciudad}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#a89a82] uppercase tracking-wider">Dirección</p>
-                        <p className="text-sm text-[#f5e6c8] mt-1">{userData.direccion}</p>
-                      </div>
+                      {userData.phone && (
+                        <div>
+                          <p className="text-xs text-[#a89a82] uppercase tracking-wider">Teléfono</p>
+                          <p className="text-sm text-[#f5e6c8] mt-1">{userData.phone}</p>
+                        </div>
+                      )}
+                      {userData.address?.calle && (
+                        <div>
+                          <p className="text-xs text-[#a89a82] uppercase tracking-wider">Dirección</p>
+                          <p className="text-sm text-[#f5e6c8] mt-1">
+                            {userData.address.calle}{userData.address.ciudad ? `, ${userData.address.ciudad}` : ''}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -229,6 +318,124 @@ export default function Profile() {
                     <p className="text-sm text-[#a89a82] max-w-sm mx-auto">
                       Realiza tu primera compra y tus pedidos aparecerán aquí.
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {tab === 'data' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+                    Mis Datos
+                  </h1>
+                  <p className="text-[#a89a82] text-sm mt-1">Información para tus envíos a domicilio</p>
+                </div>
+
+                <div className="bg-[#141210] border border-[#2a2520] rounded-xl p-6 space-y-6">
+                  <div>
+                    <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Nombre</label>
+                    <div className="w-full bg-[#1e1b18]/60 border border-[#2a2520]/60 rounded-lg px-4 py-3 text-[#f5e6c8] text-sm">
+                      {userData?.nombre || '—'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Teléfono *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="612345678"
+                      className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:border-[#d4af37] focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Calle *</label>
+                    <input
+                      type="text"
+                      required
+                      value={calle}
+                      onChange={(e) => setCalle(e.target.value)}
+                      placeholder="Calle Mayor 15"
+                      className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:border-[#d4af37] focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Ciudad *</label>
+                      <input
+                        type="text"
+                        required
+                        value={ciudad}
+                        onChange={(e) => setCiudad(e.target.value)}
+                        placeholder="Madrid"
+                        className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:border-[#d4af37] focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Provincia *</label>
+                      <input
+                        type="text"
+                        required
+                        value={provincia}
+                        onChange={(e) => setProvincia(e.target.value)}
+                        placeholder="Madrid"
+                        className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:border-[#d4af37] focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Código Postal *</label>
+                    <input
+                      type="text"
+                      required
+                      value={codigoPostal}
+                      onChange={(e) => setCodigoPostal(e.target.value)}
+                      placeholder="28001"
+                      maxLength={5}
+                      className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:border-[#d4af37] focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Referencias</label>
+                    <textarea
+                      value={referencias}
+                      onChange={(e) => setReferencias(e.target.value)}
+                      placeholder="Piso 2B, timbre izquierdo..."
+                      rows={2}
+                      className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:border-[#d4af37] focus:outline-none transition-all resize-none"
+                    />
+                  </div>
+
+                  {saveMsg && (
+                    <div className={`px-4 py-3 rounded-lg text-sm ${
+                      saveMsg.type === 'ok'
+                        ? 'bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37]'
+                        : 'bg-red-900/20 border border-red-800/50 text-red-300'
+                    }`}>
+                      {saveMsg.text}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleSaveData}
+                      disabled={saving}
+                      className="bg-[#d4af37] text-[#0a0a0a] px-8 py-3 rounded-lg font-bold hover:bg-[#b8962e] disabled:opacity-50 transition-colors uppercase tracking-wider text-sm"
+                    >
+                      {saving ? (
+                        <span className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-[#0a0a0a] border-t-transparent rounded-full animate-spin" />
+                          Guardando...
+                        </span>
+                      ) : 'Guardar Datos'}
+                    </button>
                   </div>
                 </div>
               </div>

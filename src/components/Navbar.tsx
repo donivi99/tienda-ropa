@@ -55,9 +55,11 @@ export default function Navbar() {
                       Admin
                     </Link>
                   )}
-                  <Link to="/mi-cuenta" className="text-sm text-[#a89a82] hover:text-[#f5e6c8] transition-colors">
-                    Mi Cuenta
-                  </Link>
+                  {!isAdmin && (
+                    <Link to="/mi-cuenta" className="text-sm text-[#a89a82] hover:text-[#f5e6c8] transition-colors">
+                      Mi Cuenta
+                    </Link>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="text-sm text-[#a89a82] hover:text-[#d4af37] transition-colors"

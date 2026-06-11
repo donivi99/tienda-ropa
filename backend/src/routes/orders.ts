@@ -25,8 +25,9 @@ router.post('/', authMiddleware, validate(validateOrder), async (req: AuthReques
       req.body
     );
     res.status(201).json(order);
-  } catch {
-    res.status(500).json({ error: 'Error al crear pedido' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error al crear pedido';
+    res.status(500).json({ error: message });
   }
 });
 

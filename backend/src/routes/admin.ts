@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
 import { getAllUsers } from '../services/authService.js';
-import { getAllOrders, updateOrderStatus, getDashboardStats } from '../services/orderService.js';
+import { getAllOrders, updateOrderStatus, getDashboardStats, getOrderById } from '../services/orderService.js';
 import { toggleProductActive } from '../services/productService.js';
 
 const router = Router();
@@ -31,6 +31,19 @@ router.get('/orders', authMiddleware, adminMiddleware, async (_req, res) => {
     res.json(orders);
   } catch {
     res.status(500).json({ error: 'Error al obtener pedidos' });
+  }
+});
+
+router.get('/orders/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const order = await getOrderById(req.params.id as string);
+    if (!order) {
+      res.status(404).json({ error: 'Pedido no encontrado' });
+      return;
+    }
+    res.json(order);
+  } catch {
+    res.status(500).json({ error: 'Error al obtener pedido' });
   }
 });
 

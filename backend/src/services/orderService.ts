@@ -16,21 +16,28 @@ export async function createOrder(
   const total = subtotal + shippingFee;
 
   await db.runTransaction(async (transaction) => {
-    for (const item of data.items) {
-      const productRef = db.collection('products').doc(item.productId);
-      const productSnap = await transaction.get(productRef);
+    const checks = await Promise.all(
+      data.items.map(async (item) => {
+        const productRef = db.collection('products').doc(item.productId);
+        const snap = await transaction.get(productRef);
+        return { item, productRef, snap };
+      })
+    );
 
-      if (!productSnap.exists) {
+    for (const { item, snap } of checks) {
+      if (!snap.exists) {
         throw new Error(`Producto ${item.name} no encontrado`);
       }
-
-      const productData = productSnap.data() as { stock?: Record<string, number> } | undefined;
+      const productData = snap.data() as { stock?: Record<string, number> } | undefined;
       const available = productData?.stock?.[item.selectedSize] ?? 0;
-
       if (available < item.quantity) {
         throw new Error(`Stock insuficiente para ${item.name} (talla ${item.selectedSize})`);
       }
+    }
 
+    for (const { item, productRef, snap } of checks) {
+      const productData = snap.data() as { stock?: Record<string, number> } | undefined;
+      const available = productData?.stock?.[item.selectedSize] ?? 0;
       transaction.update(productRef, {
         [`stock.${item.selectedSize}`]: available - item.quantity,
       });
@@ -128,8 +135,8 @@ export async function getDashboardStats() {
     db.collection('orders').get(),
   ]);
 
-  const orders = ordersSnap.docs.map((d) => d.data());
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const totalRevenue = orders.reduce((sum, o) => sum + ((o as Record<string, unknown>).total as number || 0), 0);
 
   return {
     totalUsers: usersSnap.size,

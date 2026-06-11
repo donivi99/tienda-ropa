@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
+  deleteUser,
 } from 'firebase/auth';
 import { getFirebaseAuth } from '../config/firebase';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 type Mode = 'login' | 'register' | 'reset';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
   const navigate = useNavigate();
@@ -25,6 +28,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [resetSent, setResetSent] = useState(false);
 
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [emailFormatError, setEmailFormatError] = useState('');
+  const [emailCheckStatus, setEmailCheckStatus] = useState<'idle' | 'checking' | 'exists' | 'available'>('idle');
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const resetForm = () => {
     setEmail('');
     setEmailConfirm('');
@@ -33,6 +43,65 @@ export default function Login() {
     setNombre('');
     setError('');
     setResetSent(false);
+    setEmailTouched(false);
+    setEmailFormatError('');
+    setEmailCheckStatus('idle');
+    setPasswordTouched(false);
+    setPasswordError('');
+  };
+
+  const validateEmailFormat = useCallback((value: string) => {
+    if (!value) return '';
+    return EMAIL_REGEX.test(value) ? '' : 'Email no válido';
+  }, []);
+
+  const checkEmailExists = useCallback(async (value: string) => {
+    if (!value || !EMAIL_REGEX.test(value.trim())) {
+      setEmailCheckStatus('idle');
+      return;
+    }
+    setEmailCheckStatus('checking');
+    try {
+      const { exists } = await api.post<{ exists: boolean }>('/api/auth/check-email', { email: value.trim() });
+      setEmailCheckStatus(exists ? 'exists' : 'available');
+    } catch {
+      setEmailCheckStatus('idle');
+    }
+  }, []);
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (emailTouched) {
+      setEmailFormatError(validateEmailFormat(value));
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (mode === 'register' && value && EMAIL_REGEX.test(value.trim())) {
+      setEmailCheckStatus('checking');
+      debounceRef.current = setTimeout(() => checkEmailExists(value), 500);
+    } else {
+      setEmailCheckStatus('idle');
+    }
+  };
+
+  const handleEmailBlur = () => {
+    setEmailTouched(true);
+    setEmailFormatError(validateEmailFormat(email));
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (mode === 'register' && email && EMAIL_REGEX.test(email.trim())) {
+      checkEmailExists(email);
+    }
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (passwordTouched) {
+      setPasswordError(value.length >= 6 ? '' : 'La contraseña debe tener al menos 6 caracteres');
+    }
+  };
+
+  const handlePasswordBlur = () => {
+    setPasswordTouched(true);
+    setPasswordError(password.length >= 6 ? '' : 'La contraseña debe tener al menos 6 caracteres');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,16 +110,18 @@ export default function Login() {
     setError('');
 
     if (mode === 'register') {
-      if (email !== emailConfirm) {
-        setError('Los correos electrónicos no coinciden');
-        setLoading(false);
-        return;
-      }
-      if (password !== passwordConfirm) {
-        setError('Las contraseñas no coinciden');
-        setLoading(false);
-        return;
-      }
+      setEmailTouched(true);
+      setPasswordTouched(true);
+      const fmtErr = validateEmailFormat(email);
+      setEmailFormatError(fmtErr);
+      setPasswordError(password.length >= 6 ? '' : 'La contraseña debe tener al menos 6 caracteres');
+
+      if (fmtErr) { setLoading(false); return; }
+      if (password.length < 6) { setLoading(false); return; }
+      if (emailCheckStatus === 'exists') { setError('Este email ya está registrado'); setLoading(false); return; }
+      if (emailCheckStatus === 'checking') { setError('Espera a que verifiquemos el email'); setLoading(false); return; }
+      if (email !== emailConfirm) { setError('Los correos electrónicos no coinciden'); setLoading(false); return; }
+      if (password !== passwordConfirm) { setError('Las contraseñas no coinciden'); setLoading(false); return; }
     }
 
     try {
@@ -58,12 +129,15 @@ export default function Login() {
 
       if (mode === 'register') {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(cred.user, { displayName: nombre });
-
-        const token = await cred.user.getIdToken();
-        setToken(token);
-
-        await api.post('/api/auth/register', { email, password, nombre });
+        try {
+          await updateProfile(cred.user, { displayName: nombre });
+          await api.post('/api/auth/register', { email, nombre });
+          const token = await cred.user.getIdToken();
+          setToken(token);
+        } catch (regErr) {
+          await deleteUser(cred.user).catch(() => {});
+          throw regErr;
+        }
       } else if (mode === 'reset') {
         await sendPasswordResetEmail(auth, email);
         setResetSent(true);
@@ -73,7 +147,14 @@ export default function Login() {
         setToken(token);
       }
 
-      if (mode !== 'reset') navigate('/mi-cuenta');
+      if (mode !== 'reset') {
+        try {
+          const profile = await api.get<{ role: string }>('/api/auth/me');
+          navigate(profile.role === 'admin' ? '/administrador' : '/mi-cuenta');
+        } catch {
+          navigate('/mi-cuenta');
+        }
+      }
     } catch (err) {
       if (err instanceof Error) {
         const code = (err as { code?: string }).code;
@@ -143,14 +224,43 @@ export default function Login() {
 
             <div>
               <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
-                className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:outline-none transition-all"
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  onBlur={handleEmailBlur}
+                  placeholder="tu@email.com"
+                  className={`w-full bg-[#1e1b18] border rounded-lg px-4 py-3 pr-10 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:outline-none transition-all ${
+                    emailTouched && emailFormatError ? 'border-red-500' :
+                    emailTouched && emailCheckStatus === 'exists' ? 'border-red-500' :
+                    emailTouched && emailCheckStatus === 'available' ? 'border-green-500/60' :
+                    emailTouched && emailCheckStatus === 'checking' ? 'border-yellow-500/50' :
+                    'border-[#2a2520]'
+                  }`}
+                />
+                {emailTouched && emailCheckStatus === 'available' && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-sm">✓</span>
+                )}
+                {emailTouched && emailCheckStatus === 'checking' && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-3.5 h-3.5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                  </span>
+                )}
+              </div>
+              {emailTouched && emailFormatError && (
+                <p className="text-red-400 text-xs mt-1">{emailFormatError}</p>
+              )}
+              {emailTouched && emailCheckStatus === 'exists' && (
+                <p className="text-red-400 text-xs mt-1">Este email ya está registrado</p>
+              )}
+              {emailTouched && emailCheckStatus === 'available' && !emailFormatError && (
+                <p className="text-green-400/70 text-xs mt-1">Email disponible</p>
+              )}
+              {emailTouched && emailCheckStatus === 'checking' && !emailFormatError && (
+                <p className="text-[#a89a82] text-xs mt-1">Verificando...</p>
+              )}
             </div>
 
             {mode === 'register' && (
@@ -170,15 +280,28 @@ export default function Login() {
             {(mode === 'login' || mode === 'register') && (
               <div>
                 <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Contraseña</label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-3 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:outline-none transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
+                    onBlur={handlePasswordBlur}
+                    placeholder="••••••••"
+                    className={`w-full bg-[#1e1b18] border rounded-lg px-4 py-3 pr-10 text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:outline-none transition-all ${
+                      passwordTouched && passwordError ? 'border-red-500' :
+                      passwordTouched && password.length >= 6 ? 'border-green-500/60' :
+                      'border-[#2a2520]'
+                    }`}
+                  />
+                  {passwordTouched && password.length >= 6 && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-sm">✓</span>
+                  )}
+                </div>
+                {passwordTouched && passwordError && (
+                  <p className="text-red-400 text-xs mt-1">{passwordError}</p>
+                )}
               </div>
             )}
 

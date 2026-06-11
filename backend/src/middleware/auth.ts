@@ -20,6 +20,7 @@ export async function authMiddleware(
     req.user = {
       uid: decoded.uid,
       email: decoded.email ?? null,
+      role: (decoded as Record<string, unknown>).role as string | undefined,
     };
     next();
   } catch {

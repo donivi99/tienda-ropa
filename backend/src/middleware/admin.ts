@@ -1,5 +1,5 @@
 import type { Response, NextFunction } from 'express';
-import { getAdminDb } from '../config/firebase.js';
+import { getAdminAuth, getAdminDb } from '../config/firebase.js';
 import type { AuthRequest } from '../types/index.js';
 
 export async function adminMiddleware(
@@ -9,6 +9,11 @@ export async function adminMiddleware(
 ): Promise<void> {
   if (!req.user) {
     res.status(401).json({ error: 'No autenticado' });
+    return;
+  }
+
+  if (req.user.role === 'admin') {
+    next();
     return;
   }
 
@@ -22,9 +27,12 @@ export async function adminMiddleware(
       return;
     }
 
+    const auth = getAdminAuth();
+    await auth.setCustomUserClaims(req.user.uid, { role: 'admin' });
     req.user.role = 'admin';
     next();
-  } catch {
+  } catch (err) {
+    console.error('Error al verificar permisos admin:', err);
     res.status(500).json({ error: 'Error al verificar permisos' });
   }
 }
