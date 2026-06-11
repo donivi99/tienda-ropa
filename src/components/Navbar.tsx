@@ -10,6 +10,7 @@ const CATEGORIES = [
   { label: 'Inicio', path: '/' },
   { label: 'Mujer', path: '/categoria-mujer' },
   { label: 'Hombre', path: '/categoria-hombre' },
+  { label: 'Niños', path: '/categoria-ninos' },
   { label: 'Destacados', path: '/categoria-destacados' },
   { label: 'Sobre Nosotros', path: '/sobre-nosotros' },
 ];

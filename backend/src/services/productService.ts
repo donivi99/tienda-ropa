@@ -1,5 +1,6 @@
 import { getAdminDb } from '../config/firebase.js';
 import type { ProductInput } from '../types/index.js';
+import { generateProductoId } from './productoIdService.js';
 
 export async function getAllProducts(filters?: {
   genero?: string;
@@ -27,15 +28,18 @@ export async function getProductById(id: string) {
 
 export async function createProduct(data: ProductInput, createdBy: string) {
   const db = getAdminDb();
-  const docRef = await db.collection('products').add({
+  const productoId = await generateProductoId();
+  const payload = {
     ...data,
+    productoId,
     isActive: true,
     createdBy,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  });
+  };
+  const docRef = await db.collection('products').add(payload);
 
-  return { id: docRef.id, ...data };
+  return { id: docRef.id, ...payload };
 }
 
 export async function updateProduct(id: string, data: Partial<ProductInput>) {
@@ -45,12 +49,16 @@ export async function updateProduct(id: string, data: Partial<ProductInput>) {
 
   if (!doc.exists) return null;
 
+  const { productoId: _ignored, ...safeData } = data as Partial<ProductInput> & {
+    productoId?: string;
+  };
+
   await docRef.update({
-    ...data,
+    ...safeData,
     updatedAt: new Date().toISOString(),
   });
 
-  return { id, ...doc.data(), ...data };
+  return { id, ...doc.data(), ...safeData };
 }
 
 export async function deleteProduct(id: string) {

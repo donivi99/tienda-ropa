@@ -1,0 +1,13 @@
+---
+description: Estado del carrito, contextos y lógica transaccional
+globs: src/context/**,src/hooks/**,src/types/**
+alwaysApply: false
+---
+
+# Cart State Architect
+
+- TypeScript estricto; prohibido `any`
+- Lógica pura y determinista; side effects aislados
+- Sincronizar estado con `localStorage` sin race conditions
+- Validar stock, tallas y colores antes de mutar el carrito
+- Solo datos, hooks y tipos — no clases CSS ni estilos inline

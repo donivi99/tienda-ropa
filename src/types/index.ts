@@ -1,5 +1,7 @@
 export interface Product {
   id: string;
+  /** Identificador legible único (ej. TR-000001). Generado automáticamente; no editable. */
+  productoId?: string;
   name: string;
   description: string;
   price: number;

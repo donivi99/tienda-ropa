@@ -1,13 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import type { Product } from '../../types';
-import { MAIN_COLORS } from '../../utils/colorMap';
+import { MAIN_COLORS, productMatchesColorFilters } from '../../utils/colorMap';
+
+const CATEGORY_OPTIONS = [
+  { value: '', label: 'Todas las categorías' },
+  { value: 'camisetas-cortas', label: 'Camisetas Cortas' },
+  { value: 'camisetas-largas', label: 'Camisetas Largas' },
+  { value: 'pantalones-cortos', label: 'Pantalones Cortos' },
+  { value: 'pantalones-largos', label: 'Pantalones Largos' },
+] as const;
+
+const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
+function sortSizes(sizes: string[]) {
+  return [...sizes].sort((a, b) => {
+    const ai = SIZE_ORDER.indexOf(a);
+    const bi = SIZE_ORDER.indexOf(b);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+}
+
+const selectClass =
+  'w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-3 py-2.5 text-sm text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterProductoId, setFilterProductoId] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterGenero, setFilterGenero] = useState('');
+  const [filterTipo, setFilterTipo] = useState('');
+  const [filterSize, setFilterSize] = useState('');
   const [filterColors, setFilterColors] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({
@@ -117,11 +147,53 @@ export default function AdminProducts() {
     });
   };
 
-  const filteredProducts = products.filter(
-    (p) =>
-      filterColors.length === 0 ||
-      p.colors?.some((c) => filterColors.includes(c))
-  );
+  const availableSizes = useMemo(() => {
+    const sizes = new Set<string>();
+    products.forEach((p) => p.sizes?.forEach((s) => sizes.add(s)));
+    return sortSizes(Array.from(sizes));
+  }, [products]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    filterProductoId.trim() !== '' ||
+    filterCategory !== '' ||
+    filterGenero !== '' ||
+    filterTipo !== '' ||
+    filterSize !== '' ||
+    filterColors.length > 0;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterProductoId('');
+    setFilterCategory('');
+    setFilterGenero('');
+    setFilterTipo('');
+    setFilterSize('');
+    setFilterColors([]);
+  };
+
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const productoIdQ = filterProductoId.trim().toLowerCase();
+
+    return products.filter((p) => {
+      if (productoIdQ) {
+        const code = p.productoId?.toLowerCase() ?? '';
+        if (!code.includes(productoIdQ)) return false;
+      }
+      if (q) {
+        const inName = p.name.toLowerCase().includes(q);
+        const inDesc = p.description.toLowerCase().includes(q);
+        if (!inName && !inDesc) return false;
+      }
+      if (filterCategory && p.category !== filterCategory) return false;
+      if (filterGenero && p.genero !== filterGenero) return false;
+      if (filterTipo && p.tipo !== filterTipo) return false;
+      if (filterSize && !p.sizes?.includes(filterSize)) return false;
+      if (filterColors.length > 0 && !productMatchesColorFilters(p.colors, filterColors)) return false;
+      return true;
+    });
+  }, [products, searchQuery, filterProductoId, filterCategory, filterGenero, filterTipo, filterSize, filterColors]);
 
   const allFilteredSelected = filteredProducts.length > 0 && filteredProducts.every((p) => selectedProducts.has(p.id));
 
@@ -182,7 +254,11 @@ export default function AdminProducts() {
           <h1 className="text-3xl font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
             Productos
           </h1>
-          <p className="mt-1 text-sm text-[#a89a82]">{products.length} productos</p>
+          <p className="mt-1 text-sm text-[#a89a82]">
+            {filteredProducts.length === products.length
+              ? `${products.length} productos`
+              : `${filteredProducts.length} de ${products.length} productos`}
+          </p>
         </div>
         <button
           onClick={() => { setShowForm(true); setEditing(null); resetForm(); }}
@@ -190,6 +266,115 @@ export default function AdminProducts() {
         >
           + Nuevo Producto
         </button>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-[#2a2520] bg-[#141210] p-4 space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">
+              Buscar por nombre
+            </label>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Nombre o descripción..."
+              className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-sm text-[#f5e6c8] placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">
+              Producto ID
+            </label>
+            <input
+              type="search"
+              value={filterProductoId}
+              onChange={(e) => setFilterProductoId(e.target.value)}
+              placeholder="TR-000001..."
+              className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-sm text-[#f5e6c8] font-mono placeholder-[#a89a82]/50 focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div>
+            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Categoría</label>
+            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={selectClass}>
+              {CATEGORY_OPTIONS.map((o) => (
+                <option key={o.value || 'all'} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Género</label>
+            <select value={filterGenero} onChange={(e) => setFilterGenero(e.target.value)} className={selectClass}>
+              <option value="">Todos</option>
+              <option value="hombre">Hombre</option>
+              <option value="mujer">Mujer</option>
+              <option value="niños">Niños</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Tipo</label>
+            <select value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)} className={selectClass}>
+              <option value="">Todos</option>
+              <option value="corto">Corto</option>
+              <option value="largo">Largo</option>
+              <option value="tirantes">Tirantes</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Talla</label>
+            <select value={filterSize} onChange={(e) => setFilterSize(e.target.value)} className={selectClass}>
+              <option value="">Todas</option>
+              {availableSizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="w-full rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/10 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-[#d4af37] hover:bg-[#d4af37]/20 transition-colors"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-2">Color</label>
+          <div className="flex flex-wrap gap-2">
+            {MAIN_COLORS.map((c) => {
+              const active = filterColors.includes(c.key);
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => {
+                    setFilterColors(
+                      active ? filterColors.filter((k) => k !== c.key) : [...filterColors, c.key]
+                    );
+                  }}
+                  className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
+                    active
+                      ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f5e6c8]'
+                      : 'border-[#2a2520] bg-[#1e1b18] text-[#a89a82] hover:border-[#d4af37]/50'
+                  }`}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full border border-[#2a2520]"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {showForm && (
@@ -432,62 +617,6 @@ export default function AdminProducts() {
         </div>
       )}
 
-      {filterColors.length > 0 && (
-        <div className="mb-4 flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-[#a89a82] uppercase tracking-wider">Filtrar por color:</span>
-          {MAIN_COLORS.filter((c) => filterColors.includes(c.key)).map((c) => (
-            <button
-              key={c.key}
-              onClick={() => setFilterColors(filterColors.filter((k) => k !== c.key))}
-              className="flex items-center gap-1.5 rounded-full border border-[#d4af37] bg-[#d4af37]/10 px-2.5 py-1 text-xs text-[#f5e6c8] hover:bg-[#d4af37]/20 transition-colors"
-            >
-              <span
-                className="h-3 w-3 rounded-full border border-[#2a2520]"
-                style={{ backgroundColor: c.hex }}
-              />
-              {c.label}
-              <span className="ml-0.5 text-[#a89a82]">×</span>
-            </button>
-          ))}
-          <button
-            onClick={() => setFilterColors([])}
-            className="text-xs text-[#a89a82] hover:text-[#f5e6c8] transition-colors"
-          >
-            Limpiar
-          </button>
-        </div>
-      )}
-
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-[#a89a82] uppercase tracking-wider">Colores:</span>
-        {MAIN_COLORS.map((c) => {
-          const active = filterColors.includes(c.key);
-          return (
-            <button
-              key={c.key}
-              onClick={() => {
-                setFilterColors(
-                  active
-                    ? filterColors.filter((k) => k !== c.key)
-                    : [...filterColors, c.key]
-                );
-              }}
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
-                active
-                  ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f5e6c8]'
-                  : 'border-[#2a2520] bg-[#1e1b18] text-[#a89a82] hover:border-[#d4af37]/50'
-              }`}
-            >
-              <span
-                className="h-3 w-3 rounded-full border border-[#2a2520]"
-                style={{ backgroundColor: c.hex }}
-              />
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-
       <div className="overflow-x-auto rounded-xl border border-[#2a2520]">
         <table className="w-full text-sm">
           <thead>
@@ -508,6 +637,27 @@ export default function AdminProducts() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2a2520]">
+            {filteredProducts.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center">
+                  <p className="text-[#f5e6c8] font-medium">No hay productos que coincidan</p>
+                  <p className="mt-1 text-sm text-[#a89a82]">
+                    {hasActiveFilters
+                      ? 'Prueba a ajustar los filtros o limpiarlos.'
+                      : 'Aún no hay productos en el catálogo.'}
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="mt-4 text-xs uppercase tracking-wider text-[#d4af37] hover:text-[#f5e6c8] transition-colors"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </td>
+              </tr>
+            )}
             {filteredProducts.map((product) => (
               <tr
                 key={product.id}
@@ -530,7 +680,13 @@ export default function AdminProducts() {
                     )}
                     <div>
                       <p className="text-[#f5e6c8] font-medium">{product.name}</p>
-                      <p className="text-xs text-[#a89a82]">{product.genero} · {product.tipo}</p>
+                      <p className="text-xs text-[#a89a82] capitalize">{product.genero} · {product.tipo}</p>
+                      <p
+                        className="mt-0.5 font-mono text-[0.65rem] text-[#5f574d]"
+                        title={product.productoId ?? 'Sin productoId'}
+                      >
+                        {product.productoId ?? '—'}
+                      </p>
                     </div>
                   </div>
                 </td>

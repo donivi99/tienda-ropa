@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, query, startAfter, where, type QueryDocumentSnapshot } from 'firebase/firestore';
 import type { Product } from '../types';
+import { productMatchesColorFilters } from '../utils/colorMap';
 import { getFirebaseDb } from '../config/firebase';
 import ProductGrid from './ProductGrid';
 import FilterSidebar, { type Filters } from './FilterSidebar';
@@ -14,26 +15,36 @@ const DEFAULT_FILTERS: Filters = {
   priceRange: [0, 999],
 };
 
-function getPageMeta(category: 'mujer' | 'hombre') {
-  return category === 'mujer'
-    ? {
-        eyebrow: 'Colección femenina',
-        title: 'Mujer',
-        description: 'Piezas con silueta, textura y presencia para un armario más refinado.',
-        accent: 'from-[#d4af37]/25 via-[#f5e6c8]/8 to-transparent',
-        metric: 'Selección curada',
-      }
-    : {
-        eyebrow: 'Colección masculina',
-        title: 'Hombre',
-        description: 'Una lectura más sobria y contemporánea, con prendas versátiles y premium.',
-        accent: 'from-[#d4af37]/20 via-[#a89a82]/10 to-transparent',
-        metric: 'Estilo esencial',
-      };
+function getPageMeta(category: 'mujer' | 'hombre' | 'niños') {
+  if (category === 'mujer') {
+    return {
+      eyebrow: 'Colección femenina',
+      title: 'Mujer',
+      description: 'Piezas con silueta, textura y presencia para un armario más refinado.',
+      accent: 'from-[#d4af37]/25 via-[#f5e6c8]/8 to-transparent',
+      metric: 'Selección curada',
+    };
+  }
+  if (category === 'niños') {
+    return {
+      eyebrow: 'Colección infantil',
+      title: 'Niños',
+      description: 'Prendas cómodas y resistentes para el día a día, con colores vivos y tejidos suaves.',
+      accent: 'from-[#d4af37]/20 via-[#5fcf80]/10 to-transparent',
+      metric: 'Mini estilos',
+    };
+  }
+  return {
+    eyebrow: 'Colección masculina',
+    title: 'Hombre',
+    description: 'Una lectura más sobria y contemporánea, con prendas versátiles y premium.',
+    accent: 'from-[#d4af37]/20 via-[#a89a82]/10 to-transparent',
+    metric: 'Estilo esencial',
+  };
 }
 
 interface CollectionPageProps {
-  category: 'mujer' | 'hombre';
+  category: 'mujer' | 'hombre' | 'niños';
 }
 
 export default function CollectionPage({ category }: CollectionPageProps) {
@@ -123,7 +134,9 @@ export default function CollectionPage({ category }: CollectionPageProps) {
 
     if (filters.tipo.length > 0) result = result.filter((p) => filters.tipo.includes(p.tipo || ''));
     if (filters.sizes.length > 0) result = result.filter((p) => p.sizes?.some((s) => filters.sizes.includes(s)));
-    if (filters.colors.length > 0) result = result.filter((p) => p.colors?.some((c) => filters.colors.includes(c)));
+    if (filters.colors.length > 0) {
+      result = result.filter((p) => productMatchesColorFilters(p.colors, filters.colors));
+    }
     if (filters.priceRange[0] > priceStats.min || filters.priceRange[1] < priceStats.max) {
       result = result.filter((p) => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]);
     }

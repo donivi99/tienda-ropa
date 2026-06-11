@@ -62,7 +62,10 @@ router.post('/', authMiddleware, adminMiddleware, validate(validateProduct), asy
 
 router.put('/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
   try {
-    const product = await updateProduct(req.params.id as string, req.body);
+    const { productoId: _ignored, ...body } = req.body as Record<string, unknown> & {
+      productoId?: string;
+    };
+    const product = await updateProduct(req.params.id as string, body);
     if (!product) {
       res.status(404).json({ error: 'Producto no encontrado' });
       return;

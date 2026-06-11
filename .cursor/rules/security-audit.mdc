@@ -1,0 +1,14 @@
+---
+description: Auditoría de seguridad — solo análisis, sin editar código
+alwaysApply: false
+---
+
+# Security Audit (solo lectura)
+
+Al auditar:
+- Reglas Firestore: flaggear permisos wildcard read/write
+- Credenciales: nunca hardcodeadas; solo env vars
+- XSS en inputs, checkout y query params
+- Tampering client-side (precios, roles) antes del payload
+- Entregar checklist estructurado de mitigaciones
+- NO modificar archivos; solo reportar hallazgos

@@ -15,10 +15,6 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 
-# OpenCode workspace artifacts
-.agents/
-skills-lock.json
-
 node_modules
 dist
 dist-ssr

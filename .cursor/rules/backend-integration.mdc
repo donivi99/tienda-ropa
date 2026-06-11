@@ -1,0 +1,14 @@
+---
+description: Backend Express, Firebase y integraciones cloud
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Backend Integration
+
+- Firestore y Firebase Auth con manejo robusto de promesas
+- Patrones Node.js: capas route → service → middleware
+- Paginación y caché para minimizar lecturas Firestore
+- Retry con backoff en APIs externas (Cloudinary, etc.)
+- Validación en middleware antes de servicios
+- Credenciales solo vía env y `serviceAccountKey.json` local

@@ -26,6 +26,7 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm text-[#a89a82]">
               <li><Link to="/categoria-mujer" className="transition-colors hover:text-[#f5e6c8]">Mujer</Link></li>
               <li><Link to="/categoria-hombre" className="transition-colors hover:text-[#f5e6c8]">Hombre</Link></li>
+              <li><Link to="/categoria-ninos" className="transition-colors hover:text-[#f5e6c8]">Niños</Link></li>
               <li><Link to="/categoria-destacados" className="transition-colors hover:text-[#f5e6c8]">Destacados</Link></li>
               <li><Link to="/sobre-nosotros" className="transition-colors hover:text-[#f5e6c8]">Sobre nosotros</Link></li>
             </ul>

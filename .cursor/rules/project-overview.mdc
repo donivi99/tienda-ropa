@@ -1,0 +1,16 @@
+---
+description: Contexto global del proyecto TiendaRopa
+alwaysApply: true
+---
+
+# TiendaRopa
+
+Stack: React 19, TypeScript, Tailwind CSS 4, Vite, React Router 7, Express, Firebase Auth + Firestore.
+
+Estructura:
+- `src/` — frontend (components, pages, context, services)
+- `backend/src/` — API Express (routes, services, middleware)
+
+Roles: usuario (comprar) y admin (CRUD productos, pedidos, usuarios).
+
+No modificar secretos ni hardcodear credenciales. Usar `import.meta.env` en frontend.

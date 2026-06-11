@@ -14,6 +14,7 @@ export function validate(schema: Validator) {
 }
 
 export function validateProduct(body: Record<string, unknown>): string | null {
+  if ('productoId' in body) return 'productoId no puede enviarse manualmente';
   if (!body.name || typeof body.name !== 'string') return 'Nombre requerido';
   if (typeof body.price !== 'number' || body.price <= 0) return 'Precio inválido';
   if (!body.category || typeof body.category !== 'string') return 'Categoría requerida';

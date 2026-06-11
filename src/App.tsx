@@ -30,6 +30,7 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/categoria-mujer" element={<CollectionPage category="mujer" />} />
               <Route path="/categoria-hombre" element={<CollectionPage category="hombre" />} />
+              <Route path="/categoria-ninos" element={<CollectionPage category="niños" />} />
               <Route path="/categoria-destacados" element={<Home />} />
               <Route path="/producto/:id" element={<ProductDetail />} />
               <Route path="/finalizar-compra" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />

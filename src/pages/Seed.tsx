@@ -7,7 +7,23 @@ function img(query: string, w = 400) {
   return `https://images.unsplash.com/${query}?w=${w}&fit=crop`;
 }
 
-const PRODUCTS: Omit<Product, 'id'>[] = [
+function formatProductoId(seq: number): string {
+  return `TR-${String(seq).padStart(6, '0')}`;
+}
+
+function prepareProduct(product: Omit<Product, 'id' | 'productoId'>, index: number): Omit<Product, 'id'> {
+  const prepared: Omit<Product, 'id'> = {
+    ...product,
+    productoId: formatProductoId(index + 1),
+    colors: product.colors.map((c) => c.toLowerCase()),
+  };
+  if (/premium/i.test(product.name) && prepared.discountPercent == null) {
+    prepared.discountPercent = 10;
+  }
+  return prepared;
+}
+
+const PRODUCTS: Omit<Product, 'id' | 'productoId'>[] = [
   // ═══════════════════════════════════════════════
   // CAMISETAS CORTAS HOMBRE FORMAL (10)
   // ═══════════════════════════════════════════════
@@ -61,8 +77,8 @@ const PRODUCTS: Omit<Product, 'id'>[] = [
   { name: 'Camiseta Ribbed Tee', description: 'Tejido ribbed que se adapta al cuerpo.', price: 23.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'corto', images: [img('photo-1581044777550-4cfa607b8f24')], sizes: ['XS','S','M','L'], colors: ['Negro','Blanco','Verde'], stock: { XS:7, S:11, M:13, L:9 } },
   { name: 'Camiseta Boxy Fit', description: 'Corte boxy relajado y con estilo.', price: 25.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'corto', images: [img('photo-1551803091-e20673f15770')], sizes: ['XS','S','M','L','XL'], colors: ['Gris claro','Crema','Lila'], stock: { XS:6, S:9, M:11, L:8, XL:5 } },
   { name: 'Camiseta Striped Mujer', description: 'Rayas verticales alargan la silueta.', price: 20.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'corto', images: [img('photo-1564257631407-4deb1f99d992')], sizes: ['XS','S','M','L'], colors: ['Azul/Blanco','Negro/Blanco'], stock: { XS:8, S:12, M:14, L:10 } },
-  { name: 'Camiseta Muscle Tee', description: 'Corte sin mangas para verano fresco.', price: 18.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'corto', images: [img('photo-1595777457583-95e059d581b8')], sizes: ['XS','S','M','L','XL'], colors: ['Negro','Blanco','Gris'], stock: { XS:9, S:14, M:16, L:11, XL:7 } },
-  { name: 'Camiseta Baby Tee', description: 'Corte ajustado estilo retro años 2000.', price: 22.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'corto', images: [img('photo-1564257631407-4deb1f99d992')], sizes: ['XS','S','M','L'], colors: ['Rosa','Blanco','Lila'], stock: { XS:7, S:10, M:12, L:8 } },
+  { name: 'Camiseta Muscle Tee', description: 'Corte sin mangas para verano fresco.', price: 18.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'tirantes', images: [img('photo-1595777457583-95e059d581b8')], sizes: ['XS','S','M','L','XL'], colors: ['negro','blanco','gris'], stock: { XS:9, S:14, M:16, L:11, XL:7 } },
+  { name: 'Camiseta Baby Tee', description: 'Corte ajustado estilo retro años 2000.', price: 22.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'tirantes', images: [img('photo-1564257631407-4deb1f99d992')], sizes: ['XS','S','M','L'], colors: ['rosa','blanco','lila'], stock: { XS:7, S:10, M:12, L:8 } },
 
   // ═══════════════════════════════════════════════
   // CAMISETAS LARGAS HOMBRE FORMAL (10)
@@ -230,7 +246,41 @@ const PRODUCTS: Omit<Product, 'id'>[] = [
   { name: 'Short French Terry Mujer', description: 'French Terry suave para relax total.', price: 28.99, category: 'pantalones-cortos', genero: 'mujer', tipo: 'corto', images: [img('photo-1552902865-b72c031ac5ea')], sizes: ['XS','S','M','L','XL'], colors: ['Gris','Negro','Crema'], stock: { XS:6, S:10, M:12, L:8, XL:5 } },
   { name: 'Short Ribbed Mujer', description: 'Tejido ribbed casual y con estilo.', price: 25.99, category: 'pantalones-cortos', genero: 'mujer', tipo: 'corto', images: [img('photo-1594938298603-c8148c4dae35')], sizes: ['XS','S','M','L'], colors: ['Negro','Blanco','Rosa'], stock: { XS:7, S:11, M:13, L:9 } },
   { name: 'Short Linen Blend', description: 'Mezcla de lino fresco para verano.', price: 30.99, category: 'pantalones-cortos', genero: 'mujer', tipo: 'corto', images: [img('photo-1598554747436-c9293d6a588f')], sizes: ['XS','S','M','L','XL'], colors: ['Blanco','Beige','Azul claro'], stock: { XS:5, S:8, M:10, L:7, XL:4 } },
-  { name: 'Short Color Block Mujer', description: 'Bloques de color para look divertido.', price: 23.99, category: 'pantalones-cortos', genero: 'mujer', tipo: 'corto', images: [img('photo-1541099649105-f69ad21f3246')], sizes: ['XS','S','M','L'], colors: ['Rosa/Lila','Azul/Blanco'], stock: { XS:8, S:12, M:14, L:10 } },
+  { name: 'Short Color Block Mujer', description: 'Bloques de color para look divertido.', price: 23.99, category: 'pantalones-cortos', genero: 'mujer', tipo: 'corto', images: [img('photo-1541099649105-f69ad21f3246')], sizes: ['XS','S','M','L'], colors: ['rosa/lila','azul/blanco'], stock: { XS:8, S:12, M:14, L:10 } },
+
+  // ═══════════════════════════════════════════════
+  // CAMISETAS TIRANTES HOMBRE (5)
+  // ═══════════════════════════════════════════════
+  { name: 'Tank Top Básica Hombre', description: 'Tirantes clásica de algodón para el verano.', price: 16.99, category: 'camisetas-cortas', genero: 'hombre', tipo: 'tirantes', images: [img('photo-1521572163474-6864f9cf17ab')], sizes: ['S','M','L','XL','XXL'], colors: ['negro','blanco','gris'], stock: { S:10, M:14, L:12, XL:8, XXL:5 } },
+  { name: 'Tank Top Dry-Fit', description: 'Tirantes deportiva con tejido transpirable.', price: 21.99, category: 'camisetas-cortas', genero: 'hombre', tipo: 'tirantes', images: [img('photo-1571455786673-9d9d6c194f90')], sizes: ['S','M','L','XL'], colors: ['negro','azul','verde'], stock: { S:8, M:12, L:10, XL:6 } },
+  { name: 'Tank Top Ribbed Hombre', description: 'Tirantes con textura ribbed y corte ajustado.', price: 19.99, category: 'camisetas-cortas', genero: 'hombre', tipo: 'tirantes', images: [img('photo-1607345366928-199ea26cfe7e')], sizes: ['S','M','L','XL','XXL'], colors: ['negro','gris','blanco'], stock: { S:7, M:11, L:9, XL:6, XXL:3 } },
+  { name: 'Tank Top Oversize', description: 'Tirantes amplia estilo streetwear.', price: 23.99, category: 'camisetas-cortas', genero: 'hombre', tipo: 'tirantes', images: [img('photo-1588359348347-9bc6cbbb689e')], sizes: ['S','M','L','XL'], colors: ['negro','verde oliva'], stock: { S:6, M:10, L:8, XL:5 } },
+  { name: 'Tank Top Graphic', description: 'Tirantes con estampado gráfico frontal.', price: 24.99, category: 'camisetas-cortas', genero: 'hombre', tipo: 'tirantes', images: [img('photo-1503342217505-b0a15ec3261c')], sizes: ['S','M','L','XL','XXL'], colors: ['negro','blanco'], stock: { S:5, M:9, L:7, XL:4, XXL:2 } },
+
+  // ═══════════════════════════════════════════════
+  // CAMISETAS TIRANTES MUJER (5)
+  // ═══════════════════════════════════════════════
+  { name: 'Tank Top Ribbed Mujer', description: 'Tirantes ribbed que marca la silueta.', price: 17.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'tirantes', images: [img('photo-1581044777550-4cfa607b8f24')], sizes: ['XS','S','M','L'], colors: ['negro','blanco','rosa'], stock: { XS:8, S:12, M:14, L:9 } },
+  { name: 'Tank Top Cropped Tirantes', description: 'Tirantes cropped para looks de verano.', price: 19.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'tirantes', images: [img('photo-1583846783214-3a53bb5e3a8e')], sizes: ['XS','S','M','L','XL'], colors: ['blanco','negro','lila'], stock: { XS:7, S:11, M:13, L:8, XL:5 } },
+  { name: 'Tank Top Lazo Espalda', description: 'Tirantes con lazo decorativo en la espalda.', price: 22.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'tirantes', images: [img('photo-1496747611176-843222e1e57c')], sizes: ['XS','S','M','L'], colors: ['rosa','crema','negro'], stock: { XS:5, S:9, M:11, L:7 } },
+  { name: 'Tank Top Deportiva Mujer', description: 'Tirantes deportiva con soporte ligero.', price: 20.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'tirantes', images: [img('photo-1571455786673-9d9d6c194f90')], sizes: ['XS','S','M','L','XL'], colors: ['negro','gris','azul'], stock: { XS:6, S:10, M:12, L:8, XL:4 } },
+  { name: 'Tank Top Seda Tirantes', description: 'Tirantes en acabado satinado para ocasiones.', price: 26.99, category: 'camisetas-cortas', genero: 'mujer', tipo: 'tirantes', images: [img('photo-1595777457583-95e059d581b8')], sizes: ['XS','S','M','L'], colors: ['champagne','negro','rosa palo'], stock: { XS:4, S:7, M:9, L:5 } },
+
+  // ═══════════════════════════════════════════════
+  // NIÑOS — CAMISETAS Y PANTALONES (12)
+  // ═══════════════════════════════════════════════
+  { name: 'Camiseta Básica Niños', description: 'Algodón suave para el día a día.', price: 14.99, category: 'camisetas-cortas', genero: 'niños', tipo: 'corto', images: [img('photo-1521572163474-6864f9cf17ab')], sizes: ['4','6','8','10','12'], colors: ['blanco','azul','rojo'], stock: { '4':8, '6':10, '8':12, '10':10, '12':8 } },
+  { name: 'Camiseta Estampada Niños', description: 'Estampado divertido para peques.', price: 16.99, category: 'camisetas-cortas', genero: 'niños', tipo: 'corto', images: [img('photo-1576566588028-4147f3842f27')], sizes: ['4','6','8','10','12'], colors: ['amarillo','azul','verde'], stock: { '4':6, '6':9, '8':11, '10':9, '12':7 } },
+  { name: 'Camiseta Rayas Niños', description: 'Rayas marinero clásicas.', price: 15.99, category: 'camisetas-cortas', genero: 'niños', tipo: 'corto', images: [img('photo-1596755094514-f87e34085b2c')], sizes: ['4','6','8','10'], colors: ['azul/blanco','rojo/blanco'], stock: { '4':7, '6':10, '8':12, '10':8 } },
+  { name: 'Camiseta Larga Niños', description: 'Manga larga cómoda para entretiempo.', price: 18.99, category: 'camisetas-largas', genero: 'niños', tipo: 'largo', images: [img('photo-1521572163474-6864f9cf17ab')], sizes: ['4','6','8','10','12'], colors: ['gris','azul marino','negro'], stock: { '4':6, '6':8, '8':10, '10':8, '12':6 } },
+  { name: 'Camiseta Térmica Niños', description: 'Tejido térmico para días fríos.', price: 21.99, category: 'camisetas-largas', genero: 'niños', tipo: 'largo', images: [img('photo-1607345366928-199ea26cfe7e')], sizes: ['4','6','8','10'], colors: ['gris','negro'], stock: { '4':5, '6':7, '8':9, '10':7 } },
+  { name: 'Tank Top Niños', description: 'Tirantes fresca para verano.', price: 12.99, category: 'camisetas-cortas', genero: 'niños', tipo: 'tirantes', images: [img('photo-1571455786673-9d9d6c194f90')], sizes: ['4','6','8','10','12'], colors: ['blanco','azul','verde'], stock: { '4':9, '6':11, '8':13, '10':11, '12':9 } },
+  { name: 'Tirantes Deportiva Niños', description: 'Tirantes deportiva para actividad escolar.', price: 13.99, category: 'camisetas-cortas', genero: 'niños', tipo: 'tirantes', images: [img('photo-1576566588028-4147f3842f27')], sizes: ['4','6','8','10'], colors: ['rojo','azul','negro'], stock: { '4':7, '6':10, '8':12, '10':8 } },
+  { name: 'Pantalón Jogger Niños', description: 'Jogger cómodo con cintura elástica.', price: 22.99, category: 'pantalones-largos', genero: 'niños', tipo: 'largo', images: [img('photo-1552902865-b72c031ac5ea')], sizes: ['4','6','8','10','12'], colors: ['gris','negro','azul'], stock: { '4':6, '6':9, '8':11, '10':9, '12':7 } },
+  { name: 'Pantalón Chino Niños', description: 'Chino resistente para colegio y calle.', price: 24.99, category: 'pantalones-largos', genero: 'niños', tipo: 'largo', images: [img('photo-1473966968600-fa801b869a1a')], sizes: ['4','6','8','10'], colors: ['beige','azul','gris'], stock: { '4':5, '6':8, '8':10, '10':7 } },
+  { name: 'Short Denim Niños', description: 'Vaquero corto clásico.', price: 19.99, category: 'pantalones-cortos', genero: 'niños', tipo: 'corto', images: [img('photo-1591195853828-11db59a44f6b')], sizes: ['4','6','8','10','12'], colors: ['azul','azul claro'], stock: { '4':7, '6':10, '8':12, '10':10, '12':8 } },
+  { name: 'Short Deportivo Niños', description: 'Short ligero para jugar al aire libre.', price: 16.99, category: 'pantalones-cortos', genero: 'niños', tipo: 'corto', images: [img('photo-1591195853828-11db59a44f6b')], sizes: ['4','6','8','10'], colors: ['negro','verde','naranja'], stock: { '4':8, '6':11, '8':13, '10':9 } },
+  { name: 'Short Cargo Niños', description: 'Cargo con bolsillos prácticos.', price: 18.99, category: 'pantalones-cortos', genero: 'niños', tipo: 'corto', images: [img('photo-1591195853828-11db59a44f6b')], sizes: ['4','6','8','10','12'], colors: ['verde oliva','beige','gris'], stock: { '4':6, '6':9, '8':11, '10':8, '12':6 } },
 ];
 
 export default function SeedPage() {
@@ -251,9 +301,9 @@ export default function SeedPage() {
         const batch = writeBatch(db);
         const chunk = PRODUCTS.slice(i, i + BATCH_SIZE);
 
-        chunk.forEach((product) => {
+        chunk.forEach((product, chunkIndex) => {
           const ref = doc(collectionRef);
-          batch.set(ref, product);
+          batch.set(ref, prepareProduct(product, i + chunkIndex));
         });
 
         setMessage(`Escribiendo lote ${Math.floor(i / BATCH_SIZE) + 1}...`);
@@ -277,45 +327,14 @@ export default function SeedPage() {
       </p>
 
       <div className="bg-[#141210] border border-[#2a2520] rounded-lg p-6 mb-6">
-        <h2 className="font-semibold mb-3 text-[#f5e6c8]">Categorías (10 productos cada una):</h2>
-        <div className="grid grid-cols-2 gap-2 text-sm text-[#a89a82]">
-          <div>
-            <p className="font-medium text-[#d4af37]">Camisetas Cortas:</p>
-            <ul className="ml-4">
-              <li>Hombre Formal</li>
-              <li>Hombre Casual</li>
-              <li>Mujer Formal</li>
-              <li>Mujer Casual</li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-medium text-[#d4af37]">Camisetas Largas:</p>
-            <ul className="ml-4">
-              <li>Hombre Formal</li>
-              <li>Hombre Casual</li>
-              <li>Mujer Formal</li>
-              <li>Mujer Casual</li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-medium text-[#d4af37]">Pantalones Largos:</p>
-            <ul className="ml-4">
-              <li>Hombre Formal</li>
-              <li>Hombre Casual</li>
-              <li>Mujer Formal</li>
-              <li>Mujer Casual</li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-medium text-[#d4af37]">Pantalones Cortos:</p>
-            <ul className="ml-4">
-              <li>Hombre Formal</li>
-              <li>Hombre Casual</li>
-              <li>Mujer Formal</li>
-              <li>Mujer Casual</li>
-            </ul>
-          </div>
-        </div>
+        <h2 className="font-semibold mb-3 text-[#f5e6c8]">Contenido del catálogo:</h2>
+        <ul className="text-sm text-[#a89a82] space-y-1 ml-4 list-disc">
+          <li>Mujer y hombre: 4 categorías × 4 estilos (160 productos)</li>
+          <li>Tirantes: 12 productos (hombre, mujer y niños)</li>
+          <li>Niños: 12 productos (camisetas y pantalones)</li>
+          <li>Colores normalizados según <code className="text-[#d4af37]">colorMap.ts</code></li>
+          <li>Descuento 10% en productos Premium</li>
+        </ul>
       </div>
 
       {status === 'idle' && (

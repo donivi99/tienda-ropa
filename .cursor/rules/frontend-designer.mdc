@@ -1,0 +1,15 @@
+---
+description: UI/UX — Tailwind, React, accesibilidad y SEO
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# Frontend Designer
+
+- Tailwind CSS 4 utility-first; mantener tokens de diseño del proyecto
+- Composición explícita de componentes; evitar prop drilling profundo
+- React 19: `useActionState`, `useOptimistic` para feedback instantáneo
+- Accesibilidad: HTML semántico, ARIA, focus trap en modales/drawers
+- SEO: headers jerárquicos, OpenGraph, JSON-LD en productos
+- Imágenes: lazy loading, aspect ratios, Cloudinary si aplica
+- No tocar lógica de backend ni state machines salvo lo mínimo para UI

@@ -91,3 +91,24 @@ export function getEffectivePrice(price: number, discountPercent?: number): numb
   if (!discountPercent || discountPercent <= 0) return price;
   return price - (price * discountPercent / 100);
 }
+
+/** Comprueba si un color de producto coincide con un filtro MAIN_COLORS (p. ej. "azul" ↔ "azul marino"). */
+export function matchesColorFilter(productColor: string, filterKey: string): boolean {
+  const color = productColor.toLowerCase().trim();
+  const filter = filterKey.toLowerCase().trim();
+  if (color === filter) return true;
+  if (color.startsWith(`${filter} `)) return true;
+  if (color.includes('/')) {
+    return color.split('/').some((part) => {
+      const p = part.trim();
+      return p === filter || p.startsWith(`${filter} `);
+    });
+  }
+  return false;
+}
+
+export function productMatchesColorFilters(productColors: string[] | undefined, filterKeys: string[]): boolean {
+  if (!filterKeys.length) return true;
+  if (!productColors?.length) return false;
+  return productColors.some((c) => filterKeys.some((f) => matchesColorFilter(c, f)));
+}
