@@ -23,6 +23,9 @@ export function validateProduct(body: Record<string, unknown>): string | null {
   if (!Array.isArray(body.sizes) || body.sizes.length === 0) return 'Al menos una talla requerida';
   if (!Array.isArray(body.colors) || body.colors.length === 0) return 'Al menos un color requerido';
   if (!body.stock || typeof body.stock !== 'object') return 'Stock requerido';
+  if (body.discountPercent !== undefined && body.discountPercent !== null) {
+    if (typeof body.discountPercent !== 'number' || body.discountPercent < 0 || body.discountPercent > 100) return 'Descuento inválido (0-100)';
+  }
   return null;
 }
 

@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
+  discountPercent?: number;
   category: string;
   genero: 'mujer' | 'hombre' | 'niños';
   tipo: 'corto' | 'largo' | 'tirantes';

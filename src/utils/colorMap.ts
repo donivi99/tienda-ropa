@@ -71,3 +71,23 @@ export function isCompoundColor(colorName: string): boolean {
 export function getCompoundColors(colorName: string): [string, string] | null {
   return COMPOUND_COLORS[colorName.toLowerCase()] ?? null;
 }
+
+export const MAIN_COLORS = [
+  { key: 'negro', label: 'Negro', hex: '#2d2d2d' },
+  { key: 'blanco', label: 'Blanco', hex: '#f4f0e8' },
+  { key: 'gris', label: 'Gris', hex: '#8f8f8f' },
+  { key: 'azul', label: 'Azul', hex: '#53b8ff' },
+  { key: 'verde', label: 'Verde', hex: '#5fcf80' },
+  { key: 'rojo', label: 'Rojo', hex: '#ff4d4d' },
+  { key: 'rosa', label: 'Rosa', hex: '#f4a2df' },
+  { key: 'beige', label: 'Beige', hex: '#d8c39a' },
+  { key: 'marrón', label: 'Marrón', hex: '#8b5a2b' },
+  { key: 'lila', label: 'Lila', hex: '#C8A2C8' },
+  { key: 'amarillo', label: 'Amarillo', hex: '#fff06a' },
+  { key: 'naranja', label: 'Naranja', hex: '#ffb35c' },
+];
+
+export function getEffectivePrice(price: number, discountPercent?: number): number {
+  if (!discountPercent || discountPercent <= 0) return price;
+  return price - (price * discountPercent / 100);
+}

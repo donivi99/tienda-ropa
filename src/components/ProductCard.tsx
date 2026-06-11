@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '../types';
-import { getColorStyle } from '../utils/colorMap';
+import { getColorStyle, getEffectivePrice } from '../utils/colorMap';
 
 interface Props {
   product: Product;
@@ -39,7 +39,16 @@ export default function ProductCard({ product }: Props) {
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-[#f5e6c8]/90 backdrop-blur-md">
               {product.genero}
             </span>
-            <span className="text-lg font-semibold text-[#d4af37]">${product.price.toFixed(2)}</span>
+            <div className="flex items-center gap-2">
+              {product.discountPercent ? (
+                <>
+                  <span className="text-xs text-[#a89a82] line-through">${product.price.toFixed(2)}</span>
+                  <span className="text-lg font-semibold text-[#d4af37]">${getEffectivePrice(product.price, product.discountPercent).toFixed(2)}</span>
+                </>
+              ) : (
+                <span className="text-lg font-semibold text-[#d4af37]">${product.price.toFixed(2)}</span>
+              )}
+            </div>
           </div>
         </div>
       </div>

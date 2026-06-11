@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
-import {
-  COLOR_FAMILIES,
-  getColorStyle,
-  getCompoundColors,
-  isCompoundColor,
-} from '../utils/colorMap';
+import { MAIN_COLORS } from '../utils/colorMap';
 
 export interface Filters {
   tipo: string[];
@@ -61,89 +56,6 @@ function CollapsibleSection({
   );
 }
 
-function SolidSwatch({
-  color,
-  selected,
-  onClick,
-}: {
-  color: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  const style = getColorStyle(color);
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={color}
-      className="group/swatch relative flex flex-col items-center gap-1.5"
-    >
-      <span
-        className={`h-8 w-8 rounded-full border-2 transition-all duration-200 shadow-sm ${
-          selected
-            ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 ring-offset-2 ring-offset-[#12100e] scale-110'
-            : 'border-white/15 hover:border-white/40 hover:scale-105'
-        }`}
-        style={style}
-      />
-      <span
-        className={`text-[0.6rem] leading-tight text-center max-w-[52px] truncate transition-colors ${
-          selected ? 'text-[#d4af37]' : 'text-[#a89a82] group-hover/swatch:text-[#f5e6c8]'
-        }`}
-      >
-        {color}
-      </span>
-    </button>
-  );
-}
-
-function CompoundSwatch({
-  colorName,
-  selected,
-  onClick,
-}: {
-  colorName: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  const colors = getCompoundColors(colorName);
-  if (!colors) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={colorName}
-      className="group/swatch relative flex flex-col items-center gap-1.5"
-    >
-      <span
-        className={`relative h-8 w-10 overflow-hidden rounded-full border-2 transition-all duration-200 shadow-sm ${
-          selected
-            ? 'border-[#d4af37] ring-2 ring-[#d4af37]/30 ring-offset-2 ring-offset-[#12100e] scale-110'
-            : 'border-white/15 hover:border-white/40 hover:scale-105'
-        }`}
-      >
-        <span
-          className="absolute inset-y-0 left-0 w-1/2"
-          style={{ backgroundColor: colors[0] }}
-        />
-        <span
-          className="absolute inset-y-0 right-0 w-1/2"
-          style={{ backgroundColor: colors[1] }}
-        />
-      </span>
-      <span
-        className={`text-[0.6rem] leading-tight text-center max-w-[60px] truncate transition-colors ${
-          selected ? 'text-[#d4af37]' : 'text-[#a89a82] group-hover/swatch:text-[#f5e6c8]'
-        }`}
-      >
-        {colorName}
-      </span>
-    </button>
-  );
-}
-
 export default function FilterSidebar({
   products,
   filters,
@@ -163,12 +75,6 @@ export default function FilterSidebar({
     const sizes = new Set<string>();
     products.forEach((p) => p.sizes?.forEach((s) => sizes.add(s)));
     return Array.from(sizes).sort();
-  }, [products]);
-
-  const availableColors = useMemo(() => {
-    const colors = new Set<string>();
-    products.forEach((p) => p.colors?.forEach((c) => colors.add(c)));
-    return Array.from(colors).sort();
   }, [products]);
 
   const priceStats = useMemo(() => {
@@ -234,16 +140,6 @@ export default function FilterSidebar({
       window.removeEventListener('pointerup', onUp);
     };
   }, [dragging, filters, normalizedMax, normalizedMin, onFilterChange, priceStats.max, priceStats.min, valueFromClientX]);
-
-  const solidColors = useMemo(
-    () => availableColors.filter((c) => !isCompoundColor(c)),
-    [availableColors]
-  );
-
-  const compoundColors = useMemo(
-    () => availableColors.filter((c) => isCompoundColor(c)),
-    [availableColors]
-  );
 
   return (
     <aside className="w-full shrink-0 lg:w-[360px] xl:w-[390px]">
@@ -377,58 +273,29 @@ export default function FilterSidebar({
           </div>
         </CollapsibleSection>
 
-        {/* Color - Large swatches grouped by family */}
+        {/* Color - MAIN_COLORS */}
         <CollapsibleSection title="Color">
-          <div className="space-y-4">
-            {/* Solid colors by family */}
-            {COLOR_FAMILIES.map((family) => {
-              const familyColors = family.colors.filter((c) =>
-                solidColors.some((sc) => sc.toLowerCase() === c)
-              );
-              if (familyColors.length === 0) return null;
-
+          <div className="grid grid-cols-3 gap-2">
+            {MAIN_COLORS.map((c) => {
+              const active = filters.colors.includes(c.key);
               return (
-                <div key={family.name}>
-                  <p className="mb-2 text-[0.6rem] uppercase tracking-[0.28em] text-[#5f574d]">
-                    {family.name}
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    {familyColors.map((color) => {
-                      const realName = solidColors.find(
-                        (sc) => sc.toLowerCase() === color
-                      )!;
-                      return (
-                        <SolidSwatch
-                          key={color}
-                          color={realName}
-                          selected={filters.colors.includes(realName)}
-                          onClick={() => toggleArrayFilter('colors', realName)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
+                <button
+                  key={c.key}
+                  onClick={() => toggleArrayFilter('colors', c.key)}
+                  className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-all border ${
+                    active
+                      ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f5e6c8] shadow-[0_0_12px_rgba(212,175,55,0.25)]'
+                      : 'border-[#2a2520] bg-[#1e1b18] text-[#a89a82] hover:border-[#d4af37]/50'
+                  }`}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full border border-[#2a2520] shrink-0"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                  {c.label}
+                </button>
               );
             })}
-
-            {/* Compound colors */}
-            {compoundColors.length > 0 && (
-              <div>
-                <p className="mb-2 text-[0.6rem] uppercase tracking-[0.28em] text-[#5f574d]">
-                  Combinados
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {compoundColors.map((color) => (
-                    <CompoundSwatch
-                      key={color}
-                      colorName={color}
-                      selected={filters.colors.includes(color)}
-                      onClick={() => toggleArrayFilter('colors', color)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </CollapsibleSection>
 

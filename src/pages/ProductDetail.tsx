@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseDb } from '../config/firebase';
 import { useCart } from '../context/CartContext';
 import type { Product } from '../types';
+import { getEffectivePrice } from '../utils/colorMap';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +58,7 @@ export default function ProductDetail() {
       image: product.images[0],
       selectedSize,
       selectedColor,
-      price: product.price,
+      price: getEffectivePrice(product.price, product.discountPercent),
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -99,7 +100,17 @@ export default function ProductDetail() {
               <p className="text-sm text-[#a89a82] capitalize">{product.genero}</p>
             </div>
             <h1 className="text-3xl font-bold text-[#f5e6c8] mt-1" style={{ fontFamily: '"Bodoni Moda", serif' }}>{product.name}</h1>
-            <p className="text-2xl font-bold text-[#d4af37] mt-2">${product.price.toFixed(2)}</p>
+            <div className="flex items-center gap-3 mt-2">
+              {product.discountPercent ? (
+                <>
+                  <span className="text-2xl font-bold text-[#d4af37]">${getEffectivePrice(product.price, product.discountPercent).toFixed(2)}</span>
+                  <span className="text-lg text-[#a89a82] line-through">${product.price.toFixed(2)}</span>
+                  <span className="text-sm text-green-400 font-medium">-{product.discountPercent}%</span>
+                </>
+              ) : (
+                <p className="text-2xl font-bold text-[#d4af37]">${product.price.toFixed(2)}</p>
+              )}
+            </div>
           </div>
 
           <p className="text-[#a89a82]">{product.description}</p>

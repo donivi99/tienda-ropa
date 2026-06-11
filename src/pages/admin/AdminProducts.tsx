@@ -1,22 +1,25 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import type { Product } from '../../types';
+import { MAIN_COLORS } from '../../utils/colorMap';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [filterColors, setFilterColors] = useState<string[]>([]);
   const [form, setForm] = useState({
     name: '',
     description: '',
     price: 0,
+    discountPercent: 0,
     category: 'camisetas-cortas',
     genero: 'hombre' as 'mujer' | 'hombre' | 'niños',
     tipo: 'corto' as 'corto' | 'largo' | 'tirantes',
     images: [''],
     sizes: ['S', 'M', 'L', 'XL'],
-    colors: [''],
+    colors: [] as string[],
     stock: {} as Record<string, number>,
   });
 
@@ -38,10 +41,12 @@ export default function AdminProducts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const stock: Record<string, number> = {};
-      form.sizes.forEach((s) => { stock[s] = 10; });
-
-      const body = { ...form, stock, images: form.images.filter(Boolean), colors: form.colors.filter(Boolean) };
+      const body = {
+        ...form,
+        discountPercent: form.discountPercent || 0,
+        images: form.images.filter(Boolean),
+        colors: form.colors.filter(Boolean),
+      };
 
       if (editing) {
         await api.put(`/api/products/${editing.id}`, body);
@@ -64,12 +69,13 @@ export default function AdminProducts() {
       name: product.name,
       description: product.description,
       price: product.price,
+      discountPercent: product.discountPercent || 0,
       category: product.category,
       genero: product.genero,
       tipo: product.tipo,
       images: product.images.length > 0 ? product.images : [''],
       sizes: product.sizes,
-      colors: product.colors.length > 0 ? product.colors : [''],
+      colors: product.colors.length > 0 ? product.colors : [],
       stock: product.stock,
     });
     setShowForm(true);
@@ -99,12 +105,13 @@ export default function AdminProducts() {
       name: '',
       description: '',
       price: 0,
+      discountPercent: 0,
       category: 'camisetas-cortas',
       genero: 'hombre',
       tipo: 'corto',
       images: [''],
       sizes: ['S', 'M', 'L', 'XL'],
-      colors: [''],
+      colors: [],
       stock: {},
     });
   };
@@ -149,7 +156,7 @@ export default function AdminProducts() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Nombre</label>
                   <input
@@ -167,11 +174,30 @@ export default function AdminProducts() {
                     required
                     step="0.01"
                     value={form.price}
-                    onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) })}
+                    onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Descuento %</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={form.discountPercent}
+                    onChange={(e) => setForm({ ...form, discountPercent: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
                     className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
                   />
                 </div>
               </div>
+
+              {form.price > 0 && form.discountPercent > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-[#a89a82]">Precio final:</span>
+                  <span className="text-[#d4af37] font-bold">${(form.price - (form.price * form.discountPercent / 100)).toFixed(2)}</span>
+                  <span className="text-[#a89a82]">(-{form.discountPercent}%)</span>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Descripción</label>
@@ -265,7 +291,13 @@ export default function AdminProducts() {
                           const sizes = form.sizes.includes(size)
                             ? form.sizes.filter((s) => s !== size)
                             : [...form.sizes, size];
-                          setForm({ ...form, sizes });
+                          const stock = { ...form.stock };
+                          if (!form.sizes.includes(size)) {
+                            stock[size] = 0;
+                          } else {
+                            delete stock[size];
+                          }
+                          setForm({ ...form, sizes, stock });
                         }}
                         className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                           form.sizes.includes(size)
@@ -279,33 +311,61 @@ export default function AdminProducts() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Colores</label>
-                  {form.colors.map((color, i) => (
-                    <div key={i} className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={color}
-                        onChange={(e) => {
-                          const colors = [...form.colors];
-                          colors[i] = e.target.value;
+                  <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Stock por talla</label>
+                  <div className="flex flex-wrap gap-3">
+                    {form.sizes.map((size) => (
+                      <div key={size} className="flex items-center gap-1.5">
+                        <span className="text-xs text-[#a89a82] w-6">{size}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.stock[size] ?? 0}
+                          onChange={(e) => {
+                            const stock = { ...form.stock };
+                            stock[size] = Math.max(0, parseInt(e.target.value) || 0);
+                            setForm({ ...form, stock });
+                          }}
+                          className="w-16 bg-[#1e1b18] border border-[#2a2520] rounded-lg px-2 py-1.5 text-[#f5e6c8] text-center text-xs focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Colores</label>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {MAIN_COLORS.map((c) => {
+                    const selected = form.colors.includes(c.key);
+                    return (
+                      <button
+                        key={c.key}
+                        type="button"
+                        onClick={() => {
+                          const colors = selected
+                            ? form.colors.filter((k) => k !== c.key)
+                            : [...form.colors, c.key];
                           setForm({ ...form, colors });
                         }}
-                        placeholder="Nombre del color"
-                        className="flex-1 bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-                      />
-                      {form.colors.length > 1 && (
-                        <button type="button" onClick={() => setForm({ ...form, colors: form.colors.filter((_, j) => j !== i) })} className="text-red-400 hover:text-red-300">
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button type="button" onClick={() => setForm({ ...form, colors: [...form.colors, ''] })} className="text-xs text-[#d4af37] hover:text-[#f5e6c8]">
-                    + Añadir color
-                  </button>
+                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all border ${
+                          selected
+                            ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f5e6c8] shadow-[0_0_12px_rgba(212,175,55,0.25)]'
+                            : 'border-[#2a2520] bg-[#1e1b18] text-[#a89a82] hover:border-[#d4af37]/50 hover:bg-[#1e1b18]/80'
+                        }`}
+                      >
+                        <span
+                          className="h-4 w-4 rounded-full border border-[#2a2520] shrink-0"
+                          style={{ backgroundColor: c.hex }}
+                        />
+                        {c.label}
+                      </button>
+                    );
+                  })}
                 </div>
+                {form.colors.length > 0 && (
+                  <p className="text-xs text-[#a89a82] mt-1.5">Seleccionados: {form.colors.join(', ')}</p>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -321,6 +381,62 @@ export default function AdminProducts() {
         </div>
       )}
 
+      {filterColors.length > 0 && (
+        <div className="mb-4 flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-[#a89a82] uppercase tracking-wider">Filtrar por color:</span>
+          {MAIN_COLORS.filter((c) => filterColors.includes(c.key)).map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setFilterColors(filterColors.filter((k) => k !== c.key))}
+              className="flex items-center gap-1.5 rounded-full border border-[#d4af37] bg-[#d4af37]/10 px-2.5 py-1 text-xs text-[#f5e6c8] hover:bg-[#d4af37]/20 transition-colors"
+            >
+              <span
+                className="h-3 w-3 rounded-full border border-[#2a2520]"
+                style={{ backgroundColor: c.hex }}
+              />
+              {c.label}
+              <span className="ml-0.5 text-[#a89a82]">×</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setFilterColors([])}
+            className="text-xs text-[#a89a82] hover:text-[#f5e6c8] transition-colors"
+          >
+            Limpiar
+          </button>
+        </div>
+      )}
+
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-[#a89a82] uppercase tracking-wider">Colores:</span>
+        {MAIN_COLORS.map((c) => {
+          const active = filterColors.includes(c.key);
+          return (
+            <button
+              key={c.key}
+              onClick={() => {
+                setFilterColors(
+                  active
+                    ? filterColors.filter((k) => k !== c.key)
+                    : [...filterColors, c.key]
+                );
+              }}
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all border ${
+                active
+                  ? 'border-[#d4af37] bg-[#d4af37]/20 text-[#f5e6c8]'
+                  : 'border-[#2a2520] bg-[#1e1b18] text-[#a89a82] hover:border-[#d4af37]/50'
+              }`}
+            >
+              <span
+                className="h-3 w-3 rounded-full border border-[#2a2520]"
+                style={{ backgroundColor: c.hex }}
+              />
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="overflow-x-auto rounded-xl border border-[#2a2520]">
         <table className="w-full text-sm">
           <thead>
@@ -333,7 +449,12 @@ export default function AdminProducts() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2a2520]">
-            {products.map((product) => (
+            {products
+              .filter((product) =>
+                filterColors.length === 0 ||
+                product.colors?.some((color) => filterColors.includes(color))
+              )
+              .map((product) => (
               <tr key={product.id} className="hover:bg-[#141210]/50">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -347,7 +468,19 @@ export default function AdminProducts() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-[#a89a82]">{product.category}</td>
-                <td className="px-4 py-3 text-[#d4af37]">${product.price.toFixed(2)}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    {product.discountPercent ? (
+                      <>
+                        <span className="text-[#a89a82] line-through">${product.price.toFixed(2)}</span>
+                        <span className="text-[#d4af37] font-bold">${(product.price - (product.price * product.discountPercent / 100)).toFixed(2)}</span>
+                        <span className="text-xs text-green-400">-{product.discountPercent}%</span>
+                      </>
+                    ) : (
+                      <span className="text-[#d4af37]">${product.price.toFixed(2)}</span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <span className="rounded-full bg-[#d4af37]/10 px-2 py-1 text-xs text-[#d4af37]">Activo</span>
                 </td>
