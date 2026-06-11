@@ -17,7 +17,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setToken } = useAuth();
+  const { setToken, waitForReady, profile } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [emailConfirm, setEmailConfirm] = useState('');
@@ -126,14 +126,18 @@ export default function Login() {
 
     try {
       const auth = getFirebaseAuth();
+      let afterLoginRoute = '/mi-cuenta';
 
       if (mode === 'register') {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         try {
           await updateProfile(cred.user, { displayName: nombre });
-          await api.post('/api/auth/register', { email, nombre });
+          const result = await api.post<{ role: string }>('/api/auth/register', { email, nombre });
           const token = await cred.user.getIdToken();
           setToken(token);
+          if (result.role === 'admin') {
+            afterLoginRoute = '/administrador';
+          }
         } catch (regErr) {
           await deleteUser(cred.user).catch(() => {});
           throw regErr;
@@ -145,15 +149,15 @@ export default function Login() {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         const token = await cred.user.getIdToken();
         setToken(token);
+        const result = await api.post<{ role: string }>('/api/auth/login', { email });
+        if (result.role === 'admin') {
+          afterLoginRoute = '/administrador';
+        }
       }
 
       if (mode !== 'reset') {
-        try {
-          const profile = await api.get<{ role: string }>('/api/auth/me');
-          navigate(profile.role === 'admin' ? '/administrador' : '/mi-cuenta');
-        } catch {
-          navigate('/mi-cuenta');
-        }
+        await waitForReady();
+        navigate(afterLoginRoute);
       }
     } catch (err) {
       if (err instanceof Error) {

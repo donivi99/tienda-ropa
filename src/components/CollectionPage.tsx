@@ -124,7 +124,7 @@ export default function CollectionPage({ category }: CollectionPageProps) {
     if (filters.tipo.length > 0) result = result.filter((p) => filters.tipo.includes(p.tipo || ''));
     if (filters.sizes.length > 0) result = result.filter((p) => p.sizes?.some((s) => filters.sizes.includes(s)));
     if (filters.colors.length > 0) result = result.filter((p) => p.colors?.some((c) => filters.colors.includes(c)));
-    if (filters.priceRange[0] > 0 || filters.priceRange[1] < 999) {
+    if (filters.priceRange[0] > priceStats.min || filters.priceRange[1] < priceStats.max) {
       result = result.filter((p) => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]);
     }
 

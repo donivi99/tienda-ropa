@@ -73,7 +73,9 @@ export default function FilterSidebar({
 
   const availableSizes = useMemo(() => {
     const sizes = new Set<string>();
-    products.forEach((p) => p.sizes?.forEach((s) => sizes.add(s)));
+    products.forEach((p) => p.sizes?.forEach((s) => {
+      if (!/^\d+$/.test(s)) sizes.add(s);
+    }));
     return Array.from(sizes).sort();
   }, [products]);
 
@@ -308,26 +310,28 @@ export default function FilterSidebar({
               <span className="font-medium text-[#f5e6c8]">{normalizedMax}€</span>
             </div>
 
-            <div ref={trackRef} className="relative h-8 select-none">
-              <div className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#2a2520]" />
-              <div
-                className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#a8841f] via-[#d4af37] to-[#f5e6c8]"
-                style={{ left: `${leftPct}%`, right: `${rightPct}%` }}
-              />
-              <button
-                type="button"
-                aria-label="Precio mínimo"
-                className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f5e6c8]/60 bg-[#d4af37] shadow-[0_0_0_4px_rgba(212,175,55,0.12)] transition-shadow hover:shadow-[0_0_0_6px_rgba(212,175,55,0.2)]"
-                style={{ left: `${leftPct}%` }}
-                onPointerDown={() => setDragging('min')}
-              />
-              <button
-                type="button"
-                aria-label="Precio máximo"
-                className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f5e6c8]/60 bg-[#d4af37] shadow-[0_0_0_4px_rgba(212,175,55,0.12)] transition-shadow hover:shadow-[0_0_0_6px_rgba(212,175,55,0.2)]"
-                style={{ left: `${100 - rightPct}%` }}
-                onPointerDown={() => setDragging('max')}
-              />
+            <div className="px-[10px]">
+              <div ref={trackRef} className="relative h-8 select-none touch-none">
+                <div className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#2a2520]" />
+                <div
+                  className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#a8841f] via-[#d4af37] to-[#f5e6c8]"
+                  style={{ left: `${leftPct}%`, right: `${rightPct}%` }}
+                />
+                <button
+                  type="button"
+                  aria-label="Precio mínimo"
+                  className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f5e6c8]/60 bg-[#d4af37] shadow-[0_0_0_4px_rgba(212,175,55,0.12)] transition-shadow hover:shadow-[0_0_0_6px_rgba(212,175,55,0.2)] touch-none z-10"
+                  style={{ left: `${leftPct}%` }}
+                  onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDragging('min'); }}
+                />
+                <button
+                  type="button"
+                  aria-label="Precio máximo"
+                  className="absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#f5e6c8]/60 bg-[#d4af37] shadow-[0_0_0_4px_rgba(212,175,55,0.12)] transition-shadow hover:shadow-[0_0_0_6px_rgba(212,175,55,0.2)] touch-none z-10"
+                  style={{ left: `${100 - rightPct}%` }}
+                  onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDragging('max'); }}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

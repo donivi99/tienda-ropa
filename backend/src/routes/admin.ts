@@ -19,7 +19,8 @@ router.get('/dashboard', authMiddleware, adminMiddleware, async (_req, res) => {
 router.get('/users', authMiddleware, adminMiddleware, async (_req, res) => {
   try {
     const users = await getAllUsers();
-    res.json(users);
+    const adminEmail = process.env.ADMIN_SEED_EMAIL || '';
+    res.json({ users, adminEmail });
   } catch {
     res.status(500).json({ error: 'Error al obtener usuarios' });
   }

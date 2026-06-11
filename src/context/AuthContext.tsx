@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { getFirebaseAuth } from '../config/firebase';
 import { api } from '../services/api';
@@ -18,6 +18,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   setToken: (token: string) => void;
+  waitForReady: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAdmin: false,
   setToken: () => {},
+  waitForReady: () => Promise.resolve(),
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -36,6 +38,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setToken = (token: string) => {
     localStorage.setItem('auth_token', token);
   };
+
+  const loadingRef = useRef(loading);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+
+  const waitForReady = useCallback(() => {
+    return new Promise<void>((resolve) => {
+      if (!loadingRef.current) {
+        resolve();
+      } else {
+        const check = setInterval(() => {
+          if (!loadingRef.current) {
+            clearInterval(check);
+            resolve();
+          }
+        }, 50);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (firebaseUser) => {
@@ -87,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAdmin: profile?.role === 'admin',
         setToken,
+        waitForReady,
       }}
     >
       {children}

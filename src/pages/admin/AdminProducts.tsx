@@ -9,6 +9,7 @@ export default function AdminProducts() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [filterColors, setFilterColors] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -114,6 +115,56 @@ export default function AdminProducts() {
       colors: [],
       stock: {},
     });
+  };
+
+  const filteredProducts = products.filter(
+    (p) =>
+      filterColors.length === 0 ||
+      p.colors?.some((c) => filterColors.includes(c))
+  );
+
+  const allFilteredSelected = filteredProducts.length > 0 && filteredProducts.every((p) => selectedProducts.has(p.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(filteredProducts.map((p) => p.id)));
+    }
+  };
+
+  const toggleSelectProduct = (id: string) => {
+    setSelectedProducts((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBatchActivate = async () => {
+    const ids = Array.from(selectedProducts);
+    await Promise.allSettled(ids.map((id) => api.put(`/api/products/${id}/active`)));
+    setSelectedProducts(new Set());
+    fetchProducts();
+  };
+
+  const handleBatchDeactivate = async () => {
+    const ids = Array.from(selectedProducts);
+    await Promise.allSettled(ids.map((id) => api.put(`/api/products/${id}/active`)));
+    setSelectedProducts(new Set());
+    fetchProducts();
+  };
+
+  const handleBatchDelete = async () => {
+    if (!confirm(`¿Eliminar ${selectedProducts.size} productos?`)) return;
+    const ids = Array.from(selectedProducts);
+    await Promise.allSettled(ids.map((id) => api.delete(`/api/products/${id}`)));
+    setSelectedProducts(new Set());
+    fetchProducts();
   };
 
   if (loading) {
@@ -441,6 +492,14 @@ export default function AdminProducts() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#2a2520] bg-[#141210]">
+              <th className="px-4 py-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-[#2a2520] bg-[#1e1b18] text-[#d4af37] focus:ring-[#d4af37] focus:ring-offset-0 cursor-pointer accent-[#d4af37]"
+                />
+              </th>
               <th className="px-4 py-3 text-left text-xs uppercase tracking-wider text-[#a89a82]">Producto</th>
               <th className="px-4 py-3 text-left text-xs uppercase tracking-wider text-[#a89a82]">Categoría</th>
               <th className="px-4 py-3 text-left text-xs uppercase tracking-wider text-[#a89a82]">Precio</th>
@@ -449,13 +508,21 @@ export default function AdminProducts() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2a2520]">
-            {products
-              .filter((product) =>
-                filterColors.length === 0 ||
-                product.colors?.some((color) => filterColors.includes(color))
-              )
-              .map((product) => (
-              <tr key={product.id} className="hover:bg-[#141210]/50">
+            {filteredProducts.map((product) => (
+              <tr
+                key={product.id}
+                className={`hover:bg-[#141210]/50 transition-colors ${
+                  selectedProducts.has(product.id) ? 'bg-[#d4af37]/5' : ''
+                }`}
+              >
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.has(product.id)}
+                    onChange={() => toggleSelectProduct(product.id)}
+                    className="h-4 w-4 rounded border-[#2a2520] bg-[#1e1b18] text-[#d4af37] focus:ring-[#d4af37] focus:ring-offset-0 cursor-pointer accent-[#d4af37]"
+                  />
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {product.images[0] && (
@@ -502,6 +569,41 @@ export default function AdminProducts() {
           </tbody>
         </table>
       </div>
+
+      {/* Floating action bar */}
+      {selectedProducts.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-4 rounded-2xl border border-[#2a2520] bg-[#141210] px-6 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+          <span className="text-sm font-medium text-[#f5e6c8]">
+            <span className="text-[#d4af37]">{selectedProducts.size}</span> seleccionados
+          </span>
+          <div className="h-6 w-px bg-[#2a2520]" />
+          <button
+            onClick={handleBatchActivate}
+            className="rounded-lg px-4 py-2 text-xs font-medium text-[#f5e6c8] hover:bg-[#2a2520] transition-colors"
+          >
+            Activar
+          </button>
+          <button
+            onClick={handleBatchDeactivate}
+            className="rounded-lg px-4 py-2 text-xs font-medium text-[#a89a82] hover:bg-[#2a2520] hover:text-[#f5e6c8] transition-colors"
+          >
+            Desactivar
+          </button>
+          <button
+            onClick={handleBatchDelete}
+            className="rounded-lg px-4 py-2 text-xs font-medium text-red-400 hover:bg-red-900/20 transition-colors"
+          >
+            Eliminar
+          </button>
+          <div className="h-6 w-px bg-[#2a2520]" />
+          <button
+            onClick={() => setSelectedProducts(new Set())}
+            className="rounded-lg px-3 py-2 text-xs text-[#a89a82] hover:text-[#f5e6c8] transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

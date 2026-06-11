@@ -3,28 +3,29 @@ import { getAdminAuth, getAdminDb } from '../config/firebase.js';
 export async function registerUser(
   uid: string,
   email: string,
-  nombre: string
+  nombre: string,
+  role = 'user'
 ) {
   const db = getAdminDb();
   const auth = getAdminAuth();
 
   const existing = await db.collection('users').doc(uid).get();
   if (existing.exists) {
-    return { uid, email, nombre };
+    return existing.data() as { uid: string; email: string; nombre: string; role: string };
   }
 
   await db.collection('users').doc(uid).create({
     uid,
     email,
     nombre,
-    role: 'user',
+    role,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
 
-  await auth.setCustomUserClaims(uid, { role: 'user' });
+  await auth.setCustomUserClaims(uid, { role });
 
-  return { uid, email, nombre };
+  return { uid, email, nombre, role };
 }
 
 export async function getUserProfile(uid: string) {
