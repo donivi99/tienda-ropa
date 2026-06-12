@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import type { Product } from '../types';
 import { getEffectivePrice } from '../utils/colorMap';
 import ProductPrice, { DiscountBadge } from '../components/ProductPrice';
+import { isProductActive } from '../utils/productFilters';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +25,12 @@ export default function ProductDetail() {
     getDoc(doc(getFirebaseDb(), 'products', id))
       .then((snap) => {
         if (snap.exists()) {
-          setProduct({ id: snap.id, ...snap.data() } as Product);
+          const data = { id: snap.id, ...snap.data() } as Product;
+          if (!isProductActive(data)) {
+            setError('Este producto no está disponible en la tienda');
+            return;
+          }
+          setProduct(data);
         } else {
           setError('Producto no encontrado');
         }

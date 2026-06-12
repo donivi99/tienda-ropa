@@ -3,6 +3,7 @@ import { registerUser, getUserProfile, updateUserProfile, getAllUsers, setUserRo
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
 import { getAdminAuth, getAdminDb } from '../config/firebase.js';
+import { sanitizeAddress, validateAddressFields } from '../utils/validation.js';
 import type { AuthRequest } from '../types/index.js';
 
 const router = Router();
@@ -107,9 +108,16 @@ router.put('/me', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const { nombre, phone, address } = req.body;
 
+    if (nombre !== undefined) {
+      if (typeof nombre !== 'string' || nombre.trim().length < 2 || nombre.length > 100) {
+        res.status(400).json({ error: 'Nombre inválido (2-100 caracteres)' });
+        return;
+      }
+    }
+
     if (phone !== undefined) {
-      if (typeof phone !== 'string' || phone.trim().length < 6) {
-        res.status(400).json({ error: 'Teléfono inválido (mínimo 6 caracteres)' });
+      if (typeof phone !== 'string' || phone.trim().length < 6 || phone.length > 20) {
+        res.status(400).json({ error: 'Teléfono inválido (6-20 caracteres)' });
         return;
       }
     }
@@ -117,6 +125,11 @@ router.put('/me', authMiddleware, async (req: AuthRequest, res) => {
     if (address !== undefined && address !== null) {
       if (typeof address !== 'object') {
         res.status(400).json({ error: 'Dirección inválida' });
+        return;
+      }
+      const addrErr = validateAddressFields(address as Record<string, unknown>);
+      if (addrErr) {
+        res.status(400).json({ error: addrErr });
         return;
       }
       if (address.calle && (typeof address.calle !== 'string' || address.calle.trim().length < 3)) {
@@ -137,7 +150,11 @@ router.put('/me', authMiddleware, async (req: AuthRequest, res) => {
       }
     }
 
-    const profile = await updateUserProfile(req.user!.uid, { nombre, phone, address });
+    const profile = await updateUserProfile(req.user!.uid, {
+      nombre: nombre !== undefined ? (nombre as string).trim() : undefined,
+      phone: phone !== undefined ? (phone as string).trim() : undefined,
+      address: address !== undefined ? sanitizeAddress(address as Record<string, unknown>) : undefined,
+    });
     res.json(profile);
   } catch (err) {
     console.error('Error al actualizar perfil:', err);

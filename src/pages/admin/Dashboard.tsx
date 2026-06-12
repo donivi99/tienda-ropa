@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/api';
+import type { CartItem, ShippingAddress } from '../../types';
 
 interface DashboardStats {
   totalUsers: number;
@@ -22,36 +23,24 @@ interface OrderDetail {
   userId: string;
   userEmail: string;
   userName: string;
-  items: {
-    name: string;
-    price: number;
-    quantity: number;
-    size: string;
-    color: string;
-    image: string;
-  }[];
-  subtotal: number;
-  shippingFee: number;
-  totalAmount: number;
-  shippingAddress: {
-    nombre: string;
-    telefono: string;
-    calle: string;
-    ciudad: string;
-    provincia: string;
-    codigoPostal: string;
-    referencias?: string;
-  };
-  deliveryMethod: string;
+  items: CartItem[];
+  subtotal?: number;
+  shippingFee?: number;
+  total: number;
+  shippingAddress: ShippingAddress;
+  deliveryMethod?: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetail | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -68,15 +57,26 @@ export default function AdminDashboard() {
   }, []);
 
   const handleViewDetail = async (orderId: string) => {
+    setDetailOpen(true);
+    setDetailLoading(true);
+    setDetailError('');
+    setSelectedOrder(null);
+
     try {
-      setDetailLoading(true);
       const data = await api.get<OrderDetail>(`/api/admin/orders/${orderId}`);
       setSelectedOrder(data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      setDetailError('No se pudo cargar el detalle del pedido');
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setSelectedOrder(null);
+    setDetailError('');
+    setDetailLoading(false);
   };
 
   if (loading) {
@@ -190,7 +190,7 @@ export default function AdminDashboard() {
                 {stats.recentOrders.map((order) => (
                   <tr key={order.id}>
                     <td className="px-4 py-3 text-[#f5e6c8]">{order.userName || order.userEmail}</td>
-                    <td className="px-4 py-3 text-[#d4af37]">${order.total.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-[#d4af37]">{order.total.toFixed(2)}€</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-1 text-xs ${
                         order.status === 'pagado' ? 'bg-[#d4af37]/10 text-[#d4af37]' :
@@ -206,11 +206,12 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-4 py-3">
                       <button
+                        type="button"
                         onClick={() => handleViewDetail(order.id)}
                         disabled={detailLoading}
                         className="text-xs uppercase tracking-wider text-[#d4af37] hover:text-[#f5e6c8] transition-colors disabled:opacity-50"
                       >
-                        {detailLoading ? 'Cargando...' : 'Ver detalle'}
+                        Ver detalle
                       </button>
                     </td>
                   </tr>
@@ -221,93 +222,146 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setSelectedOrder(null)}>
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[#2a2520] bg-[#141210] p-6 md:p-8" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-[#f5e6c8]">Detalle del Pedido</h2>
-              <button onClick={() => setSelectedOrder(null)} className="text-[#a89a82] hover:text-[#f5e6c8] transition-colors">
+      {detailOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeDetail}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#d4af37]/20 bg-[#141210] shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-[#2a2520] px-6 py-5">
+              <h2 className="text-xl font-semibold text-[#f5e6c8]">Detalle del pedido</h2>
+              <button type="button" onClick={closeDetail} aria-label="Cerrar" className="text-[#a89a82] hover:text-[#f5e6c8] transition-colors">
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520]">
-                <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-1">Número de pedido</p>
-                <p className="text-[#f5e6c8] font-semibold break-all">#{selectedOrder.id}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520]">
-                <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-1">Estado</p>
-                <span className={`inline-block rounded-full px-2 py-1 text-xs ${
-                  selectedOrder.status === 'pagado' ? 'bg-[#d4af37]/10 text-[#d4af37]' :
-                  selectedOrder.status === 'enviado' ? 'bg-blue-500/10 text-blue-400' :
-                  selectedOrder.status === 'entregado' ? 'bg-green-500/10 text-green-400' :
-                  'bg-red-500/10 text-red-400'
-                }`}>
-                  {selectedOrder.status}
-                </span>
-              </div>
-              <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520]">
-                <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-1">Fecha</p>
-                <p className="text-[#f5e6c8] font-semibold">{new Date(selectedOrder.createdAt).toLocaleDateString('es-ES')}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520]">
-                <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-1">Cliente</p>
-                <p className="text-[#f5e6c8] font-semibold">{selectedOrder.userName || selectedOrder.userEmail}</p>
-                <p className="text-[#a89a82] text-xs mt-1">{selectedOrder.userEmail}</p>
-              </div>
-            </div>
+            <div className="overflow-y-auto px-6 py-5">
+              {detailLoading && (
+                <div className="flex justify-center py-16">
+                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#2a2520] border-t-[#d4af37]" />
+                </div>
+              )}
 
-            <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520] mb-6">
-              <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-3">Dirección de envío</p>
-              <div className="text-sm text-[#f5e6c8] space-y-1">
-                <p>{selectedOrder.shippingAddress.nombre}</p>
-                <p>{selectedOrder.shippingAddress.calle}</p>
-                <p>
-                  {selectedOrder.shippingAddress.codigoPostal} {selectedOrder.shippingAddress.ciudad}, {selectedOrder.shippingAddress.provincia}
-                </p>
-                {selectedOrder.shippingAddress.referencias && (
-                  <p className="text-[#a89a82] text-xs">Ref: {selectedOrder.shippingAddress.referencias}</p>
-                )}
-              </div>
-            </div>
+              {detailError && !detailLoading && (
+                <p className="py-8 text-center text-red-400">{detailError}</p>
+              )}
 
-            <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520] mb-6">
-              <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-3">Productos</p>
-              <div className="space-y-3">
-                {selectedOrder.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-4 p-3 rounded-lg bg-[#141210] border border-[#2a2520]">
-                    <img src={item.image} alt={item.name} className="h-14 w-14 rounded-lg object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[#f5e6c8] font-medium truncate">{item.name}</p>
-                      <p className="text-[#a89a82] text-xs">
-                        Talla: {item.size} | Color: {item.color} | Cant: {item.quantity}
-                      </p>
+              {selectedOrder && !detailLoading && (() => {
+                const subtotal =
+                  selectedOrder.subtotal ??
+                  selectedOrder.items.reduce((s, i) => s + i.price * i.quantity, 0);
+                const shippingFee = selectedOrder.shippingFee ?? 0;
+
+                return (
+                  <>
+                    <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
+                        <p className="mb-1 text-xs uppercase tracking-wider text-[#a89a82]">Número de pedido</p>
+                        <p className="break-all font-mono text-sm text-[#f5e6c8]">{selectedOrder.id}</p>
+                      </div>
+                      <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
+                        <p className="mb-1 text-xs uppercase tracking-wider text-[#a89a82]">Estado</p>
+                        <span className={`inline-block rounded-full px-2 py-1 text-xs ${
+                          selectedOrder.status === 'pagado' ? 'bg-[#d4af37]/10 text-[#d4af37]' :
+                          selectedOrder.status === 'enviado' ? 'bg-blue-500/10 text-blue-400' :
+                          selectedOrder.status === 'entregado' ? 'bg-green-500/10 text-green-400' :
+                          'bg-red-500/10 text-red-400'
+                        }`}>
+                          {selectedOrder.status}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
+                        <p className="mb-1 text-xs uppercase tracking-wider text-[#a89a82]">Fecha</p>
+                        <p className="font-semibold text-[#f5e6c8]">
+                          {new Date(selectedOrder.createdAt).toLocaleString('es-ES')}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
+                        <p className="mb-1 text-xs uppercase tracking-wider text-[#a89a82]">Cliente</p>
+                        <p className="font-semibold text-[#f5e6c8]">{selectedOrder.userName || selectedOrder.userEmail}</p>
+                        <p className="mt-1 text-xs text-[#a89a82]">{selectedOrder.userEmail}</p>
+                      </div>
                     </div>
-                    <p className="text-[#d4af37] font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
-                  </div>
-                ))}
-              </div>
+
+                    {selectedOrder.shippingAddress && (
+                      <div className="mb-6 rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
+                        <p className="mb-3 text-xs uppercase tracking-wider text-[#a89a82]">Dirección de envío</p>
+                        <div className="space-y-1 text-sm text-[#f5e6c8]">
+                          <p>{selectedOrder.shippingAddress.nombre}</p>
+                          <p className="text-[#a89a82]">Tel: {selectedOrder.shippingAddress.telefono}</p>
+                          <p>{selectedOrder.shippingAddress.calle}</p>
+                          <p>
+                            {selectedOrder.shippingAddress.codigoPostal}{' '}
+                            {selectedOrder.shippingAddress.ciudad}, {selectedOrder.shippingAddress.provincia}
+                          </p>
+                          {selectedOrder.shippingAddress.referencias && (
+                            <p className="text-xs text-[#a89a82]">Ref: {selectedOrder.shippingAddress.referencias}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mb-6 rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
+                      <p className="mb-3 text-xs uppercase tracking-wider text-[#a89a82]">Productos</p>
+                      <div className="space-y-3">
+                        {(selectedOrder.items ?? []).map((item, idx) => (
+                          <div key={`${item.productId}-${idx}`} className="flex items-center gap-4 rounded-lg border border-[#2a2520] bg-[#141210] p-3">
+                            {item.image && (
+                              <img src={item.image} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-[#f5e6c8]">{item.name}</p>
+                              <p className="text-xs text-[#a89a82]">
+                                Talla: {item.selectedSize} · Color: {item.selectedColor} · Cant: {item.quantity}
+                              </p>
+                            </div>
+                            <p className="shrink-0 font-semibold tabular-nums text-[#d4af37]">
+                              {(item.price * item.quantity).toFixed(2)}€
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
+                      <p className="mb-3 text-xs uppercase tracking-wider text-[#a89a82]">Resumen</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-[#a89a82]">Subtotal</span>
+                          <span className="tabular-nums text-[#f5e6c8]">{subtotal.toFixed(2)}€</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#a89a82]">Envío</span>
+                          <span className="tabular-nums text-[#f5e6c8]">{shippingFee.toFixed(2)}€</span>
+                        </div>
+                        <div className="flex justify-between border-t border-[#2a2520] pt-2">
+                          <span className="font-semibold text-[#f5e6c8]">Total</span>
+                          <span className="text-lg font-bold tabular-nums text-[#d4af37]">
+                            {selectedOrder.total.toFixed(2)}€
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
-            <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520]">
-              <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-3">Resumen</p>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[#a89a82]">Subtotal</span>
-                  <span className="text-[#f5e6c8]">${selectedOrder.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#a89a82]">Envío</span>
-                  <span className="text-[#f5e6c8]">${selectedOrder.shippingFee.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t border-[#2a2520] pt-2">
-                  <span className="text-[#f5e6c8] font-semibold">Total</span>
-                  <span className="text-[#d4af37] font-bold text-lg">${selectedOrder.totalAmount.toFixed(2)}</span>
-                </div>
-              </div>
+            <div className="shrink-0 border-t border-[#2a2520] px-6 py-4">
+              <button
+                type="button"
+                onClick={closeDetail}
+                className="w-full rounded-lg border border-[#2a2520] py-2.5 text-xs font-semibold uppercase tracking-wider text-[#f5e6c8] transition-colors hover:border-[#d4af37] hover:text-[#d4af37]"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

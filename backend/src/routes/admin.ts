@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
-import { getAllUsers } from '../services/authService.js';
+import { getAdminUsersWithStats, getAdminUserDetail } from '../services/authService.js';
 import { getAllOrders, updateOrderStatus, getDashboardStats, getOrderById } from '../services/orderService.js';
 import { toggleProductActive } from '../services/productService.js';
 
@@ -18,11 +18,24 @@ router.get('/dashboard', authMiddleware, adminMiddleware, async (_req, res) => {
 
 router.get('/users', authMiddleware, adminMiddleware, async (_req, res) => {
   try {
-    const users = await getAllUsers();
+    const users = await getAdminUsersWithStats();
     const adminEmail = process.env.ADMIN_SEED_EMAIL || '';
     res.json({ users, adminEmail });
   } catch {
     res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
+});
+
+router.get('/users/:uid', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const user = await getAdminUserDetail(req.params.uid as string);
+    if (!user) {
+      res.status(404).json({ error: 'Usuario no encontrado' });
+      return;
+    }
+    res.json(user);
+  } catch {
+    res.status(500).json({ error: 'Error al obtener usuario' });
   }
 });
 

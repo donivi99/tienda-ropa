@@ -15,6 +15,7 @@ function prepareProduct(product: Omit<Product, 'id' | 'productoId'>, index: numb
   const prepared: Omit<Product, 'id'> = {
     ...product,
     productoId: formatProductoId(index + 1),
+    isActive: true,
     colors: product.colors.map((c) => c.toLowerCase()),
   };
   const isPremium = /premium/i.test(product.name) || /premium/i.test(product.description);

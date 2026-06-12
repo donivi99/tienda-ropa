@@ -128,7 +128,7 @@ export default function OrderConfirmation() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
-            to="/mi-cuenta"
+            to={`/mi-cuenta?tab=orders${orderId ? `&orderId=${orderId}` : ''}`}
             className="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-[#d4af37] text-[#0a0a0a] font-bold uppercase tracking-wider"
           >
             Ver mis pedidos

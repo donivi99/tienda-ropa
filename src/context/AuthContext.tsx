@@ -19,6 +19,7 @@ interface AuthContextType {
   isAdmin: boolean;
   setToken: (token: string) => void;
   waitForReady: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,6 +29,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   setToken: () => {},
   waitForReady: () => Promise.resolve(),
+  refreshProfile: () => Promise.resolve(),
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -55,6 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, 50);
       }
     });
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    try {
+      const userProfile = await api.get<UserProfile>('/api/auth/me');
+      setProfile(userProfile);
+    } catch {
+      setProfile(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -108,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: profile?.role === 'admin',
         setToken,
         waitForReady,
+        refreshProfile,
       }}
     >
       {children}

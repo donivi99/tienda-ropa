@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, limit, query, startAfter, where, type QueryDocumentSnapshot } from 'firebase/firestore';
 import type { Product } from '../types';
 import { productMatchesColorFilters } from '../utils/colorMap';
-import { getProductSalePrice, hasActiveDiscount, productMatchesPrenda } from '../utils/productFilters';
+import { getProductSalePrice, hasActiveDiscount, isProductActive, productMatchesPrenda } from '../utils/productFilters';
 import { getFirebaseDb } from '../config/firebase';
 import ProductGrid from './ProductGrid';
 import FilterSidebar, { type Filters } from './FilterSidebar';
@@ -74,7 +74,9 @@ export default function CollectionPage({ category }: CollectionPageProps) {
         const snapshot = await getDocs(q);
         if (cancelled) return;
 
-        const newProducts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Product[];
+        const newProducts = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }) as Product)
+          .filter(isProductActive);
 
         setAllProducts(newProducts);
         setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
@@ -113,7 +115,9 @@ export default function CollectionPage({ category }: CollectionPageProps) {
       );
 
       const snapshot = await getDocs(q);
-      const newProducts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Product[];
+      const newProducts = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }) as Product)
+        .filter(isProductActive);
 
       setAllProducts((prev) => [...prev, ...newProducts]);
       setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);

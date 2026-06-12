@@ -13,6 +13,8 @@ export interface Product {
   sizes: string[];
   colors: string[];
   stock: Record<string, number>;
+  /** false = oculto en tienda. Ausente se trata como activo. */
+  isActive?: boolean;
 }
 
 export interface CartItem {

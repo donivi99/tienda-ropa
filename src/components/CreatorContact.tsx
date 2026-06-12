@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { getFirebaseDb } from '../config/firebase';
+import { useEffect, useState } from 'react';
+import { api } from '../services/api';
 
-export default function CreatorContact() {
+interface CreatorContactProps {
+  defaultName?: string;
+  defaultEmail?: string;
+}
+
+export default function CreatorContact({ defaultName = '', defaultEmail = '' }: CreatorContactProps) {
   const [form, setForm] = useState({
-    clientName: '',
-    email: '',
+    clientName: defaultName,
+    email: defaultEmail,
     message: '',
     customRequest: false,
   });
@@ -13,19 +17,28 @@ export default function CreatorContact() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      clientName: current.clientName || defaultName,
+      email: current.email || defaultEmail,
+    }));
+  }, [defaultName, defaultEmail]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      await addDoc(collection(getFirebaseDb(), 'creator_messages'), {
-        ...form,
-        createdAt: serverTimestamp(),
+      await api.post('/api/contact', {
+        clientName: form.clientName,
+        message: form.message,
+        customRequest: form.customRequest,
       });
       setSubmitted(true);
-    } catch {
-      setError('Error al enviar el mensaje');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al enviar el mensaje');
     } finally {
       setLoading(false);
     }
@@ -40,27 +53,29 @@ export default function CreatorContact() {
     );
   }
 
+  const inputClass =
+    'w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none';
+
   return (
     <form onSubmit={handleSubmit} className="max-w-lg mx-auto space-y-4">
-      <h2 className="text-2xl font-bold text-[#f5e6c8]">Contacta al Creador</h2>
-      <p className="text-[#a89a82]">¿Tienes una idea personalizada? Escríbenos.</p>
-
       <input
         type="text"
         placeholder="Tu nombre"
         required
         value={form.clientName}
         onChange={(e) => setForm({ ...form, clientName: e.target.value })}
-        className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+        className={inputClass}
+        aria-label="Tu nombre"
       />
 
       <input
         type="email"
         placeholder="Tu email"
         required
+        readOnly
         value={form.email}
-        onChange={(e) => setForm({ ...form, email: e.target.value })}
-        className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+        className={`${inputClass} opacity-70`}
+        aria-label="Tu email"
       />
 
       <textarea
@@ -69,7 +84,8 @@ export default function CreatorContact() {
         rows={4}
         value={form.message}
         onChange={(e) => setForm({ ...form, message: e.target.value })}
-        className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+        className={inputClass}
+        aria-label="Tu mensaje"
       />
 
       <label className="flex items-center gap-2 cursor-pointer">
@@ -82,7 +98,11 @@ export default function CreatorContact() {
         <span className="text-sm text-[#a89a82]">Es un pedido personalizado</span>
       </label>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && (
+        <p className="text-red-400 text-sm" role="status" aria-live="polite">
+          {error}
+        </p>
+      )}
 
       <button
         type="submit"

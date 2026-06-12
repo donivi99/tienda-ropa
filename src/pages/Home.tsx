@@ -4,6 +4,7 @@ import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { getFirebaseDb } from '../config/firebase';
 import type { Product } from '../types';
 import ProductGrid from '../components/ProductGrid';
+import { isProductActive } from '../utils/productFilters';
 
 export default function Home() {
   return <HomeLanding />;
@@ -19,8 +20,12 @@ function HomeLanding() {
     const fetchFeatured = async () => {
       try {
         const db = getFirebaseDb();
-        const snapshot = await getDocs(query(collection(db, 'products'), orderBy('price', 'asc'), limit(FEATURED_LIMIT)));
-        setFeatured(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Product[]);
+        const snapshot = await getDocs(query(collection(db, 'products'), orderBy('price', 'asc'), limit(FEATURED_LIMIT * 3)));
+        const active = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }) as Product)
+          .filter(isProductActive)
+          .slice(0, FEATURED_LIMIT);
+        setFeatured(active);
       } catch (err) {
         console.error(err);
       } finally {

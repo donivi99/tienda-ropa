@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AdminSelect } from '../../components/admin/AdminSelect';
 import { api } from '../../services/api';
 import type { Product } from '../../types';
 import { MAIN_COLORS, productMatchesColorFilters } from '../../utils/colorMap';
+import { isProductActive } from '../../utils/productFilters';
 
 const CATEGORY_OPTIONS = [
   { value: '', label: 'Todas las categorías' },
@@ -10,6 +12,29 @@ const CATEGORY_OPTIONS = [
   { value: 'pantalones-cortos', label: 'Pantalones Cortos' },
   { value: 'pantalones-largos', label: 'Pantalones Largos' },
 ] as const;
+
+const FORM_CATEGORY_OPTIONS = [
+  { value: 'camisetas-cortas', label: 'Camisetas Cortas' },
+  { value: 'camisetas-largas', label: 'Camisetas Largas' },
+  { value: 'pantalones-cortos', label: 'Pantalones Cortos' },
+  { value: 'pantalones-largos', label: 'Pantalones Largos' },
+];
+
+const GENERO_OPTIONS = [
+  { value: 'hombre', label: 'Hombre' },
+  { value: 'mujer', label: 'Mujer' },
+  { value: 'niños', label: 'Niños' },
+];
+
+const GENERO_FILTER_OPTIONS = [{ value: '', label: 'Todos' }, ...GENERO_OPTIONS];
+
+const TIPO_OPTIONS = [
+  { value: 'corto', label: 'Corto' },
+  { value: 'largo', label: 'Largo' },
+  { value: 'tirantes', label: 'Tirantes' },
+];
+
+const TIPO_FILTER_OPTIONS = [{ value: '', label: 'Todos' }, ...TIPO_OPTIONS];
 
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
@@ -23,9 +48,6 @@ function sortSizes(sizes: string[]) {
     return a.localeCompare(b, undefined, { numeric: true });
   });
 }
-
-const selectClass =
-  'w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-3 py-2.5 text-sm text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -153,6 +175,16 @@ export default function AdminProducts() {
     return sortSizes(Array.from(sizes));
   }, [products]);
 
+  const sizeFilterOptions = useMemo(
+    () => [{ value: '', label: 'Todas' }, ...availableSizes.map((size) => ({ value: size, label: size }))],
+    [availableSizes]
+  );
+
+  const categoryFilterOptions = useMemo(
+    () => CATEGORY_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+    []
+  );
+
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
     filterProductoId.trim() !== '' ||
@@ -218,14 +250,18 @@ export default function AdminProducts() {
   };
 
   const handleBatchActivate = async () => {
-    const ids = Array.from(selectedProducts);
+    const ids = products
+      .filter((p) => selectedProducts.has(p.id) && !isProductActive(p))
+      .map((p) => p.id);
     await Promise.allSettled(ids.map((id) => api.put(`/api/products/${id}/active`)));
     setSelectedProducts(new Set());
     fetchProducts();
   };
 
   const handleBatchDeactivate = async () => {
-    const ids = Array.from(selectedProducts);
+    const ids = products
+      .filter((p) => selectedProducts.has(p.id) && isProductActive(p))
+      .map((p) => p.id);
     await Promise.allSettled(ids.map((id) => api.put(`/api/products/${id}/active`)));
     setSelectedProducts(new Set());
     fetchProducts();
@@ -297,41 +333,30 @@ export default function AdminProducts() {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div>
-            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Categoría</label>
-            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={selectClass}>
-              {CATEGORY_OPTIONS.map((o) => (
-                <option key={o.value || 'all'} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Género</label>
-            <select value={filterGenero} onChange={(e) => setFilterGenero(e.target.value)} className={selectClass}>
-              <option value="">Todos</option>
-              <option value="hombre">Hombre</option>
-              <option value="mujer">Mujer</option>
-              <option value="niños">Niños</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Tipo</label>
-            <select value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)} className={selectClass}>
-              <option value="">Todos</option>
-              <option value="corto">Corto</option>
-              <option value="largo">Largo</option>
-              <option value="tirantes">Tirantes</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Talla</label>
-            <select value={filterSize} onChange={(e) => setFilterSize(e.target.value)} className={selectClass}>
-              <option value="">Todas</option>
-              {availableSizes.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
+          <AdminSelect
+            label="Categoría"
+            value={filterCategory}
+            onChange={setFilterCategory}
+            options={categoryFilterOptions}
+          />
+          <AdminSelect
+            label="Género"
+            value={filterGenero}
+            onChange={setFilterGenero}
+            options={GENERO_FILTER_OPTIONS}
+          />
+          <AdminSelect
+            label="Tipo"
+            value={filterTipo}
+            onChange={setFilterTipo}
+            options={TIPO_FILTER_OPTIONS}
+          />
+          <AdminSelect
+            label="Talla"
+            value={filterSize}
+            onChange={setFilterSize}
+            options={sizeFilterOptions}
+          />
           <div className="flex items-end">
             {hasActiveFilters && (
               <button
@@ -447,43 +472,24 @@ export default function AdminProducts() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Categoría</label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-                  >
-                    <option value="camisetas-cortas">Camisetas Cortas</option>
-                    <option value="camisetas-largas">Camisetas Largas</option>
-                    <option value="pantalones-cortos">Pantalones Cortos</option>
-                    <option value="pantalones-largos">Pantalones Largos</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Género</label>
-                  <select
-                    value={form.genero}
-                    onChange={(e) => setForm({ ...form, genero: e.target.value as 'mujer' | 'hombre' | 'niños' })}
-                    className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-                  >
-                    <option value="hombre">Hombre</option>
-                    <option value="mujer">Mujer</option>
-                    <option value="niños">Niños</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">Tipo</label>
-                  <select
-                    value={form.tipo}
-                    onChange={(e) => setForm({ ...form, tipo: e.target.value as 'corto' | 'largo' | 'tirantes' })}
-                    className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2.5 text-[#f5e6c8] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-                  >
-                    <option value="corto">Corto</option>
-                    <option value="largo">Largo</option>
-                    <option value="tirantes">Tirantes</option>
-                  </select>
-                </div>
+                <AdminSelect
+                  label="Categoría"
+                  value={form.category}
+                  onChange={(v) => setForm({ ...form, category: v })}
+                  options={FORM_CATEGORY_OPTIONS}
+                />
+                <AdminSelect
+                  label="Género"
+                  value={form.genero}
+                  onChange={(v) => setForm({ ...form, genero: v as 'mujer' | 'hombre' | 'niños' })}
+                  options={GENERO_OPTIONS}
+                />
+                <AdminSelect
+                  label="Tipo"
+                  value={form.tipo}
+                  onChange={(v) => setForm({ ...form, tipo: v as 'corto' | 'largo' | 'tirantes' })}
+                  options={TIPO_OPTIONS}
+                />
               </div>
 
               <div>
@@ -658,11 +664,17 @@ export default function AdminProducts() {
                 </td>
               </tr>
             )}
-            {filteredProducts.map((product) => (
+            {filteredProducts.map((product) => {
+              const active = isProductActive(product);
+              return (
               <tr
                 key={product.id}
-                className={`hover:bg-[#141210]/50 transition-colors ${
-                  selectedProducts.has(product.id) ? 'bg-[#d4af37]/5' : ''
+                className={`transition-colors ${
+                  !active
+                    ? 'border-l-2 border-l-[#5f574d] bg-[#1a1714]/90 opacity-80 hover:opacity-95'
+                    : selectedProducts.has(product.id)
+                      ? 'bg-[#d4af37]/5 hover:bg-[#d4af37]/8'
+                      : 'hover:bg-[#141210]/50'
                 }`}
               >
                 <td className="px-4 py-3">
@@ -676,10 +688,14 @@ export default function AdminProducts() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {product.images[0] && (
-                      <img src={product.images[0]} alt={product.name} className="h-10 w-10 rounded-lg object-cover" />
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className={`h-10 w-10 rounded-lg object-cover ${!active ? 'grayscale-[0.35] opacity-70' : ''}`}
+                      />
                     )}
                     <div>
-                      <p className="text-[#f5e6c8] font-medium">{product.name}</p>
+                      <p className={`font-medium ${active ? 'text-[#f5e6c8]' : 'text-[#a89a82]'}`}>{product.name}</p>
                       <p className="text-xs text-[#a89a82] capitalize">{product.genero} · {product.tipo}</p>
                       <p
                         className="mt-0.5 font-mono text-[0.65rem] text-[#5f574d]"
@@ -705,15 +721,34 @@ export default function AdminProducts() {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-[#d4af37]/10 px-2 py-1 text-xs text-[#d4af37]">Activo</span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleActive(product.id)}
+                    aria-pressed={active}
+                    aria-label={active ? 'Desactivar producto' : 'Activar producto'}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium uppercase tracking-wider transition-colors ${
+                      active
+                        ? 'border border-[#d4af37]/30 bg-[#d4af37]/10 text-[#d4af37] hover:bg-[#d4af37]/20'
+                        : 'border border-[#5f574d]/50 bg-[#1e1b18] text-[#a89a82] hover:border-[#a89a82]/60 hover:text-[#f5e6c8]'
+                    }`}
+                  >
+                    {active ? 'Activo' : 'Inactivo'}
+                  </button>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
                     <button onClick={() => handleEdit(product)} className="rounded-lg px-3 py-1.5 text-xs text-[#a89a82] hover:bg-[#2a2520] hover:text-[#f5e6c8] transition-colors">
                       Editar
                     </button>
-                    <button onClick={() => handleToggleActive(product.id)} className="rounded-lg px-3 py-1.5 text-xs text-[#a89a82] hover:bg-[#2a2520] hover:text-[#f5e6c8] transition-colors">
-                      Activar
+                    <button
+                      onClick={() => handleToggleActive(product.id)}
+                      className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${
+                        active
+                          ? 'text-[#a89a82] hover:bg-[#2a2520] hover:text-[#f5e6c8]'
+                          : 'border border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10'
+                      }`}
+                    >
+                      {active ? 'Desactivar' : 'Activar'}
                     </button>
                     <button onClick={() => handleDelete(product.id)} className="rounded-lg px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/20 transition-colors">
                       Eliminar
@@ -721,7 +756,8 @@ export default function AdminProducts() {
                   </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>

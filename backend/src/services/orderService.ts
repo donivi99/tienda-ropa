@@ -62,15 +62,23 @@ export async function createOrder(
   return { id: orderRef.id, subtotal, shippingFee, total, status: 'pagado' };
 }
 
+function sortOrdersByCreatedAtDesc<T extends { createdAt?: string }>(orders: T[]): T[] {
+  return [...orders].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
+}
+
 export async function getOrdersByUser(userId: string) {
   const db = getAdminDb();
-  const snapshot = await db
-    .collection('orders')
-    .where('userId', '==', userId)
-    .orderBy('createdAt', 'desc')
-    .get();
+  const snapshot = await db.collection('orders').where('userId', '==', userId).get();
 
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const orders = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as { createdAt?: string }),
+  }));
+  return sortOrdersByCreatedAtDesc(orders);
 }
 
 export async function getOrderById(orderId: string, userId?: string) {
@@ -89,20 +97,42 @@ export async function getOrderById(orderId: string, userId?: string) {
 export async function cancelOrder(orderId: string, userId: string) {
   const db = getAdminDb();
   const docRef = db.collection('orders').doc(orderId);
-  const doc = await docRef.get();
 
-  if (!doc.exists) return null;
+  const result = await db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(docRef);
+    if (!doc.exists) return null;
 
-  const data = doc.data() as { userId?: string; status?: string } | undefined;
-  if (!data || data.userId !== userId) return null;
-  if (data.status !== 'pagado') return null;
+    const data = doc.data() as {
+      userId?: string;
+      status?: string;
+      items?: Array<{ productId: string; selectedSize: string; quantity: number }>;
+    } | undefined;
 
-  await docRef.update({
-    status: 'cancelado',
-    updatedAt: new Date().toISOString(),
+    if (!data || data.userId !== userId) return null;
+    if (data.status !== 'pagado') return null;
+
+    const items = data.items ?? [];
+    for (const item of items) {
+      const productRef = db.collection('products').doc(item.productId);
+      const snap = await transaction.get(productRef);
+      if (snap.exists) {
+        const productData = snap.data() as { stock?: Record<string, number> } | undefined;
+        const available = productData?.stock?.[item.selectedSize] ?? 0;
+        transaction.update(productRef, {
+          [`stock.${item.selectedSize}`]: available + item.quantity,
+        });
+      }
+    }
+
+    transaction.update(docRef, {
+      status: 'cancelado',
+      updatedAt: new Date().toISOString(),
+    });
+
+    return { id: orderId, status: 'cancelado' as const };
   });
 
-  return { id: orderId, status: 'cancelado' };
+  return result;
 }
 
 export async function getAllOrders() {
@@ -138,11 +168,19 @@ export async function getDashboardStats() {
   const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
   const totalRevenue = orders.reduce((sum, o) => sum + ((o as Record<string, unknown>).total as number || 0), 0);
 
+  const recentOrders = [...orders]
+    .sort((a, b) => {
+      const ta = new Date((a as Record<string, unknown>).createdAt as string || 0).getTime();
+      const tb = new Date((b as Record<string, unknown>).createdAt as string || 0).getTime();
+      return tb - ta;
+    })
+    .slice(0, 6);
+
   return {
     totalUsers: usersSnap.size,
     totalProducts: productsSnap.size,
     totalOrders: ordersSnap.size,
     totalRevenue,
-    recentOrders: orders.slice(0, 5),
+    recentOrders,
   };
 }

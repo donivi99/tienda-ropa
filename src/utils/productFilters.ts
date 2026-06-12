@@ -1,6 +1,10 @@
 import type { Product } from '../types';
 import { getEffectivePrice } from './colorMap';
 
+export function isProductActive(product: { isActive?: boolean }): boolean {
+  return product.isActive !== false;
+}
+
 export type PrendaFilter = 'camiseta' | 'pantalon';
 
 export function productMatchesPrenda(category: string, prenda: PrendaFilter): boolean {

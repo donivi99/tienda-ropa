@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { isAllowedHttpsUrl } from '../utils/validation.js';
 
 type Validator = (body: Record<string, unknown>) => string | null;
 
@@ -49,6 +50,14 @@ export function validateOrder(body: Record<string, unknown>): string | null {
   if (!addr.codigoPostal || typeof addr.codigoPostal !== 'string') return 'Código postal requerido';
   const cp = addr.codigoPostal as string;
   if (!/^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/.test(cp.trim())) return 'Código postal español inválido';
+
+  for (const item of body.items) {
+    if (!item || typeof item !== 'object') return 'Ítem de pedido inválido';
+    const row = item as Record<string, unknown>;
+    if (row.image !== undefined && !isAllowedHttpsUrl(row.image)) {
+      return 'URL de imagen inválida (solo HTTPS)';
+    }
+  }
 
   return null;
 }
