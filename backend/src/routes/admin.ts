@@ -4,6 +4,7 @@ import { adminMiddleware } from '../middleware/admin.js';
 import { getAdminUsersWithStats, getAdminUserDetail } from '../services/authService.js';
 import { getAllOrders, updateOrderStatus, getDashboardStats, getOrderById } from '../services/orderService.js';
 import { toggleProductActive } from '../services/productService.js';
+import { getProtectedAdminEmail } from '../constants/admin.js';
 
 const router = Router();
 
@@ -19,8 +20,7 @@ router.get('/dashboard', authMiddleware, adminMiddleware, async (_req, res) => {
 router.get('/users', authMiddleware, adminMiddleware, async (_req, res) => {
   try {
     const users = await getAdminUsersWithStats();
-    const adminEmail = process.env.ADMIN_SEED_EMAIL || '';
-    res.json({ users, adminEmail });
+    res.json({ users, adminEmail: getProtectedAdminEmail() });
   } catch {
     res.status(500).json({ error: 'Error al obtener usuarios' });
   }

@@ -1,12 +1,52 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseDb } from '../config/firebase';
 import { useCart } from '../context/CartContext';
 import type { Product } from '../types';
 import { getEffectivePrice } from '../utils/colorMap';
-import ProductPrice, { DiscountBadge } from '../components/ProductPrice';
 import { isProductActive } from '../utils/productFilters';
+import ProductBreadcrumb from '../components/product/ProductBreadcrumb';
+import ProductDetailSkeleton from '../components/product/ProductDetailSkeleton';
+import ProductGallery from '../components/product/ProductGallery';
+import ProductPurchasePanel, { AddToCartButton } from '../components/product/ProductPurchasePanel';
+import ProductPrice from '../components/ProductPrice';
+
+function getCtaHint(selectedColor: string, selectedSize: string, stockForSize: number): string {
+  if (!selectedColor && !selectedSize) return 'Selecciona color y talla';
+  if (!selectedColor) return 'Selecciona un color';
+  if (!selectedSize) return 'Selecciona una talla';
+  if (stockForSize <= 0) return 'Sin stock en esta talla';
+  return 'Agregar al carrito';
+}
+
+function ProductJsonLd({ product }: { product: Product }) {
+  const price = getEffectivePrice(product.price, product.discountPercent);
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.description,
+    image: product.images,
+    sku: product.productoId ?? product.id,
+    offers: {
+      '@type': 'Offer',
+      price: price.toFixed(2),
+      priceCurrency: 'EUR',
+      availability:
+        Object.values(product.stock).some((s) => s > 0)
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+    },
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +61,11 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!id) return;
+    setProduct(null);
+    setError('');
+    setSelectedSize('');
+    setSelectedColor('');
+    setCurrentImage(0);
 
     getDoc(doc(getFirebaseDb(), 'products', id))
       .then((snap) => {
@@ -38,31 +83,21 @@ export default function ProductDetail() {
       .catch(() => setError('Error al cargar el producto'));
   }, [id]);
 
-  if (error) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-16 text-center">
-        <p className="text-red-400">{error}</p>
-      </div>
-    );
-  }
+  const totalStock = useMemo(
+    () => (product ? Object.values(product.stock).reduce((sum, s) => sum + s, 0) : 0),
+    [product],
+  );
 
-  if (!product) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-16 text-center">
-        <div className="inline-block w-8 h-8 border-4 border-[#2a2520] border-t-[#d4af37] rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const stockForSize = selectedSize ? product.stock[selectedSize] ?? 0 : 0;
-  const canAdd = selectedSize && selectedColor && stockForSize > 0;
+  const stockForSize = product && selectedSize ? product.stock[selectedSize] ?? 0 : 0;
+  const canAdd = !!(product && selectedSize && selectedColor && stockForSize > 0);
+  const ctaHint = getCtaHint(selectedColor, selectedSize, stockForSize);
 
   const handleAdd = () => {
-    if (!canAdd) return;
+    if (!product || !canAdd) return;
     addItem({
       productId: product.id,
       name: product.name,
-      image: product.images[0],
+      image: product.images[currentImage] ?? product.images[0],
       selectedSize,
       selectedColor,
       price: getEffectivePrice(product.price, product.discountPercent),
@@ -71,123 +106,83 @@ export default function ProductDetail() {
     setTimeout(() => setAdded(false), 2000);
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="relative">
-          <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-[#1e1b18]">
-            <img
-              src={product.images[currentImage]}
-              alt={product.name}
-              className="h-full w-full object-cover"
-            />
-            {product.discountPercent != null && product.discountPercent > 0 && (
-              <div className="absolute right-4 top-4">
-                <DiscountBadge percent={product.discountPercent} variant="solid" />
-              </div>
-            )}
-          </div>
-          {product.images.length > 1 && (
-            <div className="flex gap-2 mt-4">
-              {product.images.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentImage(i)}
-                  className={`w-16 h-20 rounded overflow-hidden border-2 ${
-                    i === currentImage ? 'border-[#d4af37]' : 'border-[#2a2520]'
-                  }`}
-                >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-sm text-[#d4af37] uppercase tracking-widest">{product.category}</p>
-              <span className="text-sm text-[#a89a82]">·</span>
-              <p className="text-sm text-[#a89a82] capitalize">{product.genero}</p>
-            </div>
-            <h1 className="mt-1 text-3xl font-bold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
-              {product.name}
-            </h1>
-            <div className="mt-4 rounded-xl border border-[#2a2520] bg-[#141210] px-4 py-3">
-              <ProductPrice
-                price={product.price}
-                discountPercent={product.discountPercent}
-                size="lg"
-                layout="inline"
-              />
-            </div>
-          </div>
-
-          <p className="text-[#a89a82]">{product.description}</p>
-
-          <div>
-            <h3 className="text-sm font-medium text-[#f5e6c8] mb-2 uppercase tracking-wider">Color</h3>
-            <div className="flex gap-2">
-              {product.colors.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setSelectedColor(color)}
-                  className={`px-4 py-2 border rounded-lg text-sm transition-colors ${
-                    selectedColor === color
-                      ? 'border-[#d4af37] bg-[#d4af37] text-[#0a0a0a] font-bold'
-                      : 'border-[#2a2520] text-[#f5e6c8] hover:border-[#d4af37]'
-                  }`}
-                >
-                  {color}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-[#f5e6c8] mb-2 uppercase tracking-wider">Talla</h3>
-            <div className="flex gap-2">
-              {product.sizes.map((size) => {
-                const stock = product.stock[size] ?? 0;
-                return (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    disabled={stock === 0}
-                    className={`w-12 h-12 border rounded-lg text-sm font-medium transition-colors ${
-                      selectedSize === size
-                        ? 'border-[#d4af37] bg-[#d4af37] text-[#0a0a0a]'
-                        : stock === 0
-                        ? 'border-[#1e1b18] text-[#2a2520] cursor-not-allowed'
-                        : 'border-[#2a2520] text-[#f5e6c8] hover:border-[#d4af37]'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                );
-              })}
-            </div>
-            {selectedSize && (
-              <p className="text-xs text-[#a89a82] mt-1">
-                {stockForSize > 0 ? `${stockForSize} unidades disponibles` : 'Sin stock'}
-              </p>
-            )}
-          </div>
-
-          <button
-            onClick={handleAdd}
-            disabled={!canAdd}
-            className={`w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wider transition-colors ${
-              canAdd
-                ? 'bg-[#d4af37] text-[#0a0a0a] hover:bg-[#b8962e]'
-                : 'bg-[#1e1b18] text-[#2a2520] cursor-not-allowed'
-            }`}
+  if (error) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <div className="rounded-2xl border border-[#2a2520] bg-[#141210] p-8">
+          <p className="text-red-300">{error}</p>
+          <Link
+            to="/"
+            className="mt-6 inline-block text-sm uppercase tracking-wider text-[#d4af37] hover:text-[#f5e6c8] transition-colors"
           >
-            {added ? 'Agregado al carrito' : 'Agregar al carrito'}
-          </button>
+            Volver al catálogo
+          </Link>
         </div>
       </div>
-    </div>
+    );
+  }
+
+  if (!product) {
+    return <ProductDetailSkeleton />;
+  }
+
+  const lowStock = totalStock > 0 && totalStock <= 5;
+
+  return (
+    <>
+      <ProductJsonLd product={product} />
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-28 lg:pb-12">
+        <ProductBreadcrumb product={product} />
+
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <ProductGallery
+              images={product.images}
+              name={product.name}
+              currentIndex={currentImage}
+              onIndexChange={setCurrentImage}
+              discountPercent={product.discountPercent}
+              isOutOfStock={totalStock === 0}
+              lowStock={lowStock}
+            />
+          </div>
+
+          <ProductPurchasePanel
+            product={product}
+            selectedSize={selectedSize}
+            selectedColor={selectedColor}
+            stockForSize={stockForSize}
+            totalStock={totalStock}
+            canAdd={canAdd}
+            added={added}
+            ctaHint={ctaHint}
+            onSizeChange={setSelectedSize}
+            onColorChange={setSelectedColor}
+            onAdd={handleAdd}
+          />
+        </div>
+      </div>
+
+      {/* Barra fija móvil */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#2a2520] bg-[#0a0a0a]/95 p-4 backdrop-blur-md lg:hidden">
+        <div className="mx-auto flex max-w-7xl items-center gap-4">
+          <div className="min-w-0 shrink-0">
+            <ProductPrice
+              price={product.price}
+              discountPercent={product.discountPercent}
+              size="sm"
+              layout="card"
+            />
+          </div>
+          <AddToCartButton
+            className="flex-1"
+            canAdd={canAdd}
+            added={added}
+            ctaHint={ctaHint}
+            onAdd={handleAdd}
+          />
+        </div>
+      </div>
+    </>
   );
 }

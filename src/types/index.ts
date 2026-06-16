@@ -31,6 +31,11 @@ export interface ShippingAddress {
   nombre: string;
   telefono: string;
   calle: string;
+  numero: string;
+  piso?: string;
+  puerta?: string;
+  portal?: string;
+  escalera?: string;
   ciudad: string;
   provincia: string;
   codigoPostal: string;

@@ -1,10 +1,13 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { PROFILE_ROUTES } from '../../constants/profileRoutes';
 
 export type ProfileTab = 'overview' | 'orders' | 'data' | 'contact';
 
-const TABS: { id: ProfileTab; label: string; icon: React.ReactNode }[] = [
+const TABS: { id: ProfileTab; to: string; end?: boolean; label: string; icon: React.ReactNode }[] = [
   {
     id: 'overview',
+    to: PROFILE_ROUTES.overview,
+    end: true,
     label: 'Resumen',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -14,6 +17,7 @@ const TABS: { id: ProfileTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'orders',
+    to: PROFILE_ROUTES.orders,
     label: 'Mis Pedidos',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -23,6 +27,7 @@ const TABS: { id: ProfileTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'data',
+    to: PROFILE_ROUTES.data,
     label: 'Mis Datos',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,6 +37,7 @@ const TABS: { id: ProfileTab; label: string; icon: React.ReactNode }[] = [
   },
   {
     id: 'contact',
+    to: PROFILE_ROUTES.contact,
     label: 'Contactar',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,9 +47,14 @@ const TABS: { id: ProfileTab; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
+function resolveActiveTab(pathname: string): ProfileTab {
+  if (pathname.startsWith(PROFILE_ROUTES.orders)) return 'orders';
+  if (pathname.startsWith(PROFILE_ROUTES.data)) return 'data';
+  if (pathname.startsWith(PROFILE_ROUTES.contact)) return 'contact';
+  return 'overview';
+}
+
 interface ProfileSidebarProps {
-  tab: ProfileTab;
-  onTabChange: (tab: ProfileTab) => void;
   nombre?: string;
   email?: string;
   isAdmin: boolean;
@@ -52,14 +63,15 @@ interface ProfileSidebarProps {
 }
 
 export default function ProfileSidebar({
-  tab,
-  onTabChange,
   nombre,
   email,
   isAdmin,
   loading,
   onLogout,
 }: ProfileSidebarProps) {
+  const { pathname } = useLocation();
+  const activeTab = resolveActiveTab(pathname);
+
   return (
     <div className="bg-[#141210] border border-[#2a2520] rounded-xl p-6 text-center sticky top-24">
       <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-[#1e1b18] border-2 border-[#d4af37] flex items-center justify-center">
@@ -74,25 +86,27 @@ export default function ProfileSidebar({
 
       <nav className="mt-6 space-y-1" role="tablist" aria-label="Secciones de mi cuenta">
         {TABS.map((t) => (
-          <button
+          <NavLink
             key={t.id}
-            type="button"
+            to={t.to}
+            end={t.end}
             role="tab"
             id={`tab-${t.id}`}
-            aria-selected={tab === t.id}
+            aria-selected={activeTab === t.id}
             aria-controls={`panel-${t.id}`}
-            onClick={() => onTabChange(t.id)}
-            className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-              tab === t.id
-                ? 'bg-[#d4af37] text-[#0a0a0a]'
-                : 'text-[#a89a82] hover:bg-[#1e1b18] hover:text-[#f5e6c8]'
-            }`}
+            className={({ isActive }) =>
+              `block w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                isActive
+                  ? 'bg-[#d4af37] text-[#0a0a0a]'
+                  : 'text-[#a89a82] hover:bg-[#1e1b18] hover:text-[#f5e6c8]'
+              }`
+            }
           >
             <span className="flex items-center gap-3">
               {t.icon}
               {t.label}
             </span>
-          </button>
+          </NavLink>
         ))}
       </nav>
 

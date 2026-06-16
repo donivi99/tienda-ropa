@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminSelect, ORDER_STATUS_TONES } from '../../components/admin/AdminSelect';
 import { api } from '../../services/api';
+import { formatAddressDetails, formatStreetLine } from '../../utils/orderUi';
+import { formatPendingOrdersLabel, isProtectedAdminEmail } from '../../constants/admin';
 
 const ROLE_OPTIONS = [
   { value: 'user', label: 'User', dotClass: 'bg-[#8a7d6a]' },
@@ -38,6 +40,11 @@ type SortKey = 'created-desc' | 'created-asc' | 'spent-desc' | 'orders-desc' | '
 
 interface UserAddress {
   calle?: string;
+  numero?: string;
+  piso?: string;
+  puerta?: string;
+  portal?: string;
+  escalera?: string;
   ciudad?: string;
   provincia?: string;
   codigoPostal?: string;
@@ -101,7 +108,7 @@ function formatDateTime(iso: string) {
 }
 
 function isProfileIncomplete(user: AdminUser) {
-  return !user.phone?.trim() || !user.address?.calle?.trim();
+  return !user.phone?.trim() || !user.address?.calle?.trim() || !user.address?.numero?.trim();
 }
 
 function statusBadgeClass(status: string) {
@@ -111,7 +118,9 @@ function statusBadgeClass(status: string) {
 function formatAddressBlock(user: AdminUser) {
   const addr = user.address;
   if (!addr?.calle) return null;
-  const lines = [addr.calle];
+  const lines = [formatStreetLine({ calle: addr.calle, numero: addr.numero ?? '' })];
+  const details = formatAddressDetails(addr);
+  if (details) lines.push(details);
   if (addr.codigoPostal || addr.ciudad) {
     lines.push(`${addr.codigoPostal ?? ''} ${addr.ciudad ?? ''}, ${addr.provincia ?? ''}`.trim());
   }
@@ -399,7 +408,7 @@ export default function AdminUsers() {
               </tr>
             )}
             {filteredUsers.map((user) => {
-              const isProtectedAdmin = user.email === adminEmail;
+              const isProtectedAdmin = isProtectedAdminEmail(user.email, adminEmail);
               const stats = getUserStats(user);
               const isBuyer = stats.orderCount > 0;
               const incomplete = isProfileIncomplete(user);
@@ -434,7 +443,7 @@ export default function AdminUsers() {
                           )}
                           {stats.pendingOrders > 0 && (
                             <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wider text-blue-400">
-                              {stats.pendingOrders} pendiente{stats.pendingOrders > 1 ? 's' : ''}
+                              {formatPendingOrdersLabel(stats.pendingOrders)}
                             </span>
                           )}
                         </div>
@@ -609,13 +618,13 @@ export default function AdminUsers() {
                       </p>
                     </div>
                     <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
-                      <p className="text-[0.65rem] uppercase tracking-wider text-[#a89a82]">Pendientes</p>
+                      <p className="text-[0.65rem] uppercase tracking-wider text-[#a89a82]">Pedidos pendientes</p>
                       <p className="mt-1 text-xl font-semibold text-blue-400">{detailStats.pendingOrders}</p>
                     </div>
                     <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
                       <p className="text-[0.65rem] uppercase tracking-wider text-[#a89a82]">Rol</p>
                       <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                        {detailUser.email === adminEmail ? (
+                        {isProtectedAdminEmail(detailUser.email, adminEmail) ? (
                           <span className="text-sm text-[#d4af37]">Admin principal</span>
                         ) : (
                           <AdminSelect

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { isAllowedHttpsUrl } from '../utils/validation.js';
+import { isAllowedHttpsUrl, validateShippingAddressFields } from '../utils/validation.js';
 
 type Validator = (body: Record<string, unknown>) => string | null;
 
@@ -39,17 +39,8 @@ export function validateOrder(body: Record<string, unknown>): string | null {
   if (typeof body.totalAmount !== 'number' || body.totalAmount <= 0) return 'Total inválido';
 
   if (!body.shippingAddress || typeof body.shippingAddress !== 'object') return 'Dirección de envío requerida';
-  const addr = body.shippingAddress as Record<string, unknown>;
-
-  if (!addr.nombre || typeof addr.nombre !== 'string' || (addr.nombre as string).trim().length < 2) return 'Nombre requerido';
-  if (!addr.telefono || typeof addr.telefono !== 'string' || (addr.telefono as string).trim().length < 6) return 'Teléfono inválido';
-  if (!addr.calle || typeof addr.calle !== 'string' || (addr.calle as string).trim().length < 3) return 'Calle requerida';
-  if (!addr.ciudad || typeof addr.ciudad !== 'string' || (addr.ciudad as string).trim().length < 2) return 'Ciudad requerida';
-  if (!addr.provincia || typeof addr.provincia !== 'string' || (addr.provincia as string).trim().length < 2) return 'Provincia requerida';
-
-  if (!addr.codigoPostal || typeof addr.codigoPostal !== 'string') return 'Código postal requerido';
-  const cp = addr.codigoPostal as string;
-  if (!/^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/.test(cp.trim())) return 'Código postal español inválido';
+  const addrErr = validateShippingAddressFields(body.shippingAddress as Record<string, unknown>);
+  if (addrErr) return addrErr;
 
   for (const item of body.items) {
     if (!item || typeof item !== 'object') return 'Ítem de pedido inválido';

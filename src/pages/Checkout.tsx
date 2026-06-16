@@ -1,11 +1,34 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { SHIPPING_FEE } from '../types';
+import { SHIPPING_FEE, type ShippingAddress } from '../types';
 import { api } from '../services/api';
+import { PROFILE_ROUTES } from '../constants/profileRoutes';
+import AddressFields from '../components/shipping/AddressFields';
+import {
+  EMPTY_SHIPPING_ADDRESS,
+  isProfileShippingIncomplete,
+  mergeShippingFromProfile,
+  normalizeShippingAddress,
+  profileToShippingAddress,
+  shippingAddressToProfileUpdate,
+  validateShippingAddress,
+} from '../utils/shippingAddress';
 
-const SPAIN_CP_REGEX = /^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/;
+function IncompleteProfileBanner() {
+  return (
+    <div className="rounded-lg border border-[#d4af37]/30 bg-[#d4af37]/10 px-4 py-3 text-sm text-[#f5e6c8]">
+      <p>Completa tus datos de envío en Mi Cuenta para agilizar futuras compras.</p>
+      <Link
+        to={PROFILE_ROUTES.data}
+        className="mt-2 inline-block font-semibold text-[#d4af37] hover:text-[#f5e6c8] transition-colors"
+      >
+        Ir a Mis Datos →
+      </Link>
+    </div>
+  );
+}
 
 export default function Checkout() {
   const {
@@ -18,38 +41,28 @@ export default function Checkout() {
     setShippingAddress,
     clearCart,
   } = useCart();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
-  const [address, setAddress] = useState({
-    nombre: profile?.nombre || '',
-    telefono: profile?.phone || '',
-    calle: (profile?.address as Record<string, string>)?.calle || '',
-    ciudad: (profile?.address as Record<string, string>)?.ciudad || '',
-    provincia: (profile?.address as Record<string, string>)?.provincia || '',
-    codigoPostal: (profile?.address as Record<string, string>)?.codigoPostal || '',
-    referencias: '',
-  });
+  const [address, setAddress] = useState<ShippingAddress>(() =>
+    profile ? profileToShippingAddress(profile) : { ...EMPTY_SHIPPING_ADDRESS },
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState<'method' | 'address'>(deliveryMethod ? 'address' : 'method');
 
+  const profileIncomplete = isProfileShippingIncomplete(profile);
+
   useEffect(() => {
     if (!profile) return;
-
-    setAddress((current) => ({
-      nombre: current.nombre || profile.nombre || '',
-      telefono: current.telefono || profile.phone || '',
-      calle: current.calle || (profile.address as Record<string, string>)?.calle || '',
-      ciudad: current.ciudad || (profile.address as Record<string, string>)?.ciudad || '',
-      provincia: current.provincia || (profile.address as Record<string, string>)?.provincia || '',
-      codigoPostal: current.codigoPostal || (profile.address as Record<string, string>)?.codigoPostal || '',
-      referencias: current.referencias,
-    }));
+    setAddress((current) => mergeShippingFromProfile(current, profile));
   }, [profile]);
 
   const handleSelectMethod = () => {
     setDeliveryMethod('domicilio');
+    if (profile) {
+      setAddress((current) => mergeShippingFromProfile(current, profile));
+    }
     setStep('address');
   };
 
@@ -62,29 +75,16 @@ export default function Checkout() {
       return;
     }
 
-    if (!address.nombre.trim() || !address.telefono.trim()) {
-      setError('Nombre y teléfono son obligatorios');
-      return;
-    }
-
-    if (!SPAIN_CP_REGEX.test(address.codigoPostal)) {
-      setError('Código postal español inválido (5 dígitos)');
+    const validationError = validateShippingAddress(address);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setLoading(true);
     setError('');
 
-    const fullAddress = {
-      nombre: address.nombre.trim(),
-      telefono: address.telefono.trim(),
-      calle: address.calle.trim(),
-      ciudad: address.ciudad.trim(),
-      provincia: address.provincia.trim(),
-      codigoPostal: address.codigoPostal.trim(),
-      referencias: address.referencias.trim() || undefined,
-    };
-
+    const fullAddress = normalizeShippingAddress(address);
     setShippingAddress(fullAddress);
 
     try {
@@ -106,6 +106,13 @@ export default function Checkout() {
         deliveryMethod: 'domicilio',
       });
 
+      try {
+        await api.put('/api/auth/me', shippingAddressToProfileUpdate(fullAddress));
+        await refreshProfile();
+      } catch {
+        // El pedido ya se creó; no bloquear la confirmación si falla guardar el perfil
+      }
+
       clearCart();
       navigate(`/pedido-confirmado?orderId=${order.id}`, {
         state: {
@@ -121,6 +128,10 @@ export default function Checkout() {
     }
   };
 
+  const updateAddress = (patch: Partial<ShippingAddress>) => {
+    setAddress((current) => ({ ...current, ...patch }));
+  };
+
   if (items.length === 0) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
@@ -129,6 +140,9 @@ export default function Checkout() {
       </div>
     );
   }
+
+  const inputClass =
+    'w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none';
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
@@ -162,8 +176,11 @@ export default function Checkout() {
 
       {step === 'method' && (
         <div className="space-y-4">
+          {profileIncomplete && <IncompleteProfileBanner />}
+
           <h3 className="text-lg font-semibold text-[#f5e6c8]">Método de entrega</h3>
           <button
+            type="button"
             onClick={handleSelectMethod}
             className="w-full border border-[#2a2520] bg-[#1e1b18] rounded-lg p-4 text-left hover:border-[#d4af37] transition-colors"
           >
@@ -189,62 +206,38 @@ export default function Checkout() {
             ← Cambiar método de entrega
           </button>
 
+          {profileIncomplete && <IncompleteProfileBanner />}
+
+          <p className="text-xs text-[#a89a82]">
+            Los datos se rellenan desde{' '}
+            <Link to={PROFILE_ROUTES.data} className="text-[#d4af37] hover:text-[#f5e6c8] transition-colors">
+              Mis Datos
+            </Link>
+            {' '}y se guardarán al confirmar la compra.
+          </p>
+
           <input
             type="text"
             placeholder="Nombre completo"
             required
             value={address.nombre}
-            onChange={(e) => setAddress({ ...address, nombre: e.target.value })}
-            className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+            onChange={(e) => updateAddress({ nombre: e.target.value })}
+            className={inputClass}
           />
           <input
             type="tel"
             placeholder="Teléfono"
             required
             value={address.telefono}
-            onChange={(e) => setAddress({ ...address, telefono: e.target.value })}
-            className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+            onChange={(e) => updateAddress({ telefono: e.target.value })}
+            className={inputClass}
           />
-          <input
-            type="text"
-            placeholder="Calle y número"
-            required
-            value={address.calle}
-            onChange={(e) => setAddress({ ...address, calle: e.target.value })}
-            className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              type="text"
-              placeholder="Ciudad"
-              required
-              value={address.ciudad}
-              onChange={(e) => setAddress({ ...address, ciudad: e.target.value })}
-              className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-            />
-            <input
-              type="text"
-              placeholder="Provincia"
-              required
-              value={address.provincia}
-              onChange={(e) => setAddress({ ...address, provincia: e.target.value })}
-              className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-            />
-          </div>
-          <input
-            type="text"
-            placeholder="Código postal (5 dígitos)"
-            required
-            value={address.codigoPostal}
-            onChange={(e) => setAddress({ ...address, codigoPostal: e.target.value })}
-            className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
-          />
-          <input
-            type="text"
-            placeholder="Referencias (opcional: piso, puerta...)"
-            value={address.referencias}
-            onChange={(e) => setAddress({ ...address, referencias: e.target.value })}
-            className="w-full bg-[#1e1b18] border border-[#2a2520] rounded-lg px-4 py-2 text-[#f5e6c8] placeholder-[#a89a82] focus:ring-2 focus:ring-[#d4af37] focus:outline-none"
+
+          <AddressFields
+            idPrefix="checkout"
+            value={address}
+            onChange={updateAddress}
+            inputClass={inputClass}
           />
 
           <p className="text-xs text-[#a89a82]">País: España (peninsular)</p>

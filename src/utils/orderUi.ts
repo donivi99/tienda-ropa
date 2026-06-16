@@ -40,12 +40,32 @@ export function shortOrderId(id: string) {
   return id.length > 8 ? `#${id.slice(0, 8)}…` : `#${id}`;
 }
 
+export function formatStreetLine(addr: Pick<ShippingAddress, 'calle' | 'numero'>): string {
+  const calle = addr.calle?.trim() ?? '';
+  const numero = addr.numero?.trim() ?? '';
+  if (calle && numero) return `${calle}, ${numero}`;
+  return calle || numero;
+}
+
+export function formatAddressDetails(
+  addr: Pick<ShippingAddress, 'portal' | 'escalera' | 'piso' | 'puerta'>
+): string | null {
+  const parts: string[] = [];
+  if (addr.portal?.trim()) parts.push(`Portal ${addr.portal.trim()}`);
+  if (addr.escalera?.trim()) parts.push(`Esc. ${addr.escalera.trim()}`);
+  if (addr.piso?.trim()) parts.push(`Piso ${addr.piso.trim()}`);
+  if (addr.puerta?.trim()) parts.push(`Puerta ${addr.puerta.trim()}`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 export function formatAddress(addr: ShippingAddress) {
   const lines = [
     `${addr.nombre} · ${addr.telefono}`,
-    addr.calle,
-    `${addr.codigoPostal} ${addr.ciudad}, ${addr.provincia}`,
+    formatStreetLine(addr),
   ];
+  const details = formatAddressDetails(addr);
+  if (details) lines.push(details);
+  lines.push(`${addr.codigoPostal} ${addr.ciudad}, ${addr.provincia}`);
   if (addr.referencias?.trim()) lines.push(addr.referencias.trim());
   return lines.join('\n');
 }

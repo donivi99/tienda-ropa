@@ -1,32 +1,46 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { getFirebaseAuth } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import CreatorContact from '../components/CreatorContact';
-import ProfileSidebar, { type ProfileTab } from '../components/profile/ProfileSidebar';
+import ProfileSidebar from '../components/profile/ProfileSidebar';
 import ProfileOverview from '../components/profile/ProfileOverview';
 import ProfileOrdersTab, { type UserOrder } from '../components/profile/ProfileOrdersTab';
 import ProfileDataForm from '../components/profile/ProfileDataForm';
+import { PROFILE_ROUTES } from '../constants/profileRoutes';
 import { computeUserOrderStats } from '../utils/orderStats';
+import { profileToShippingAddress } from '../utils/shippingAddress';
 
-const VALID_TABS: ProfileTab[] = ['overview', 'orders', 'data', 'contact'];
+const LEGACY_TAB_REDIRECTS: Record<string, string> = {
+  overview: PROFILE_ROUTES.overview,
+  orders: PROFILE_ROUTES.orders,
+  data: PROFILE_ROUTES.data,
+  contact: PROFILE_ROUTES.contact,
+};
 
-function parseTab(value: string | null): ProfileTab {
-  if (value && VALID_TABS.includes(value as ProfileTab)) {
-    return value as ProfileTab;
+function LegacyProfileRedirect() {
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab');
+  const orderId = searchParams.get('orderId');
+
+  if (!tab) return null;
+
+  const base = LEGACY_TAB_REDIRECTS[tab];
+  if (!base) return <Navigate to={PROFILE_ROUTES.overview} replace />;
+
+  if (tab === 'orders' && orderId) {
+    return <Navigate to={PROFILE_ROUTES.orderDetail(orderId)} replace />;
   }
-  return 'overview';
+
+  return <Navigate to={base} replace />;
 }
 
 export default function Profile() {
   const { user, profile, loading, isAdmin, refreshProfile } = useAuth();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const tab = parseTab(searchParams.get('tab'));
-  const orderIdParam = searchParams.get('orderId');
+  const [searchParams] = useSearchParams();
 
   const [orders, setOrders] = useState<UserOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
@@ -64,33 +78,13 @@ export default function Profile() {
     [orders]
   );
 
-  const setTab = (next: ProfileTab) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', next);
-    if (next !== 'orders') params.delete('orderId');
-    setSearchParams(params, { replace: true });
-  };
-
-  const handleViewOrder = (orderId: string) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', 'orders');
-    params.set('orderId', orderId);
-    setSearchParams(params, { replace: true });
-  };
-
-  const clearOrderIdParam = () => {
-    if (!searchParams.get('orderId')) return;
-    const params = new URLSearchParams(searchParams);
-    params.delete('orderId');
-    setSearchParams(params, { replace: true });
-  };
-
   const handleLogout = async () => {
     await signOut(getFirebaseAuth());
     navigate('/');
   };
 
   const profileLoading = loading || (!!user && !profile);
+  const hasLegacyTab = searchParams.has('tab');
 
   if (profileLoading) {
     return (
@@ -117,14 +111,18 @@ export default function Profile() {
     );
   }
 
+  if (hasLegacyTab) {
+    return <LegacyProfileRedirect />;
+  }
+
+  const shippingProfile = profileToShippingAddress(profile);
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
             <ProfileSidebar
-              tab={tab}
-              onTabChange={setTab}
               nombre={profile.nombre}
               email={user?.email ?? profile.email}
               isAdmin={isAdmin}
@@ -134,63 +132,76 @@ export default function Profile() {
           </div>
 
           <div className="lg:col-span-3">
-            {tab === 'overview' && (
-              <ProfileOverview
-                profile={{
-                  nombre: profile.nombre,
-                  email: profile.email,
-                  phone: profile.phone,
-                  address: profile.address as { calle?: string; ciudad?: string } | undefined,
-                }}
-                stats={stats}
-                recentOrders={recentOrders}
-                ordersLoading={ordersLoading}
-                onGoToOrders={() => setTab('orders')}
-                onViewOrder={handleViewOrder}
+            <Routes>
+              <Route
+                index
+                element={
+                  <ProfileOverview
+                    profile={{
+                      nombre: profile.nombre,
+                      email: profile.email,
+                      phone: profile.phone,
+                      address: shippingProfile,
+                    }}
+                    stats={stats}
+                    recentOrders={recentOrders}
+                    ordersLoading={ordersLoading}
+                  />
+                }
               />
-            )}
-
-            {tab === 'orders' && (
-              <ProfileOrdersTab
-                orders={orders}
-                ordersLoading={ordersLoading}
-                ordersError={ordersError}
-                initialOrderId={orderIdParam}
-                onOrdersChange={setOrders}
-                onClearOrderIdParam={clearOrderIdParam}
+              <Route
+                path="pedidos"
+                element={
+                  <ProfileOrdersTab
+                    orders={orders}
+                    ordersLoading={ordersLoading}
+                    ordersError={ordersError}
+                    onOrdersChange={setOrders}
+                  />
+                }
               />
-            )}
-
-            {tab === 'data' && (
-              <ProfileDataForm
-                profile={{
-                  nombre: profile.nombre,
-                  phone: profile.phone,
-                  address: profile.address as {
-                    calle?: string;
-                    ciudad?: string;
-                    provincia?: string;
-                    codigoPostal?: string;
-                    referencias?: string;
-                  },
-                }}
-                onSaved={refreshProfile}
+              <Route
+                path="pedidos/:orderId"
+                element={
+                  <ProfileOrdersTab
+                    orders={orders}
+                    ordersLoading={ordersLoading}
+                    ordersError={ordersError}
+                    onOrdersChange={setOrders}
+                  />
+                }
               />
-            )}
-
-            {tab === 'contact' && (
-              <div className="space-y-6" role="tabpanel" id="panel-contact" aria-labelledby="tab-contact">
-                <div>
-                  <h1 className="text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
-                    Contactar al Creador
-                  </h1>
-                  <p className="text-[#a89a82] text-sm mt-1">¿Tienes una idea personalizada? Escríbenos</p>
-                </div>
-                <div className="bg-[#141210] border border-[#2a2520] rounded-xl p-6">
-                  <CreatorContact defaultName={profile.nombre} defaultEmail={profile.email} />
-                </div>
-              </div>
-            )}
+              <Route
+                path="datos"
+                element={
+                  <ProfileDataForm
+                    profile={{
+                      nombre: profile.nombre,
+                      phone: profile.phone,
+                      address: shippingProfile,
+                    }}
+                    onSaved={refreshProfile}
+                  />
+                }
+              />
+              <Route
+                path="contacto"
+                element={
+                  <div className="space-y-6" role="tabpanel" id="panel-contact" aria-labelledby="tab-contact">
+                    <div>
+                      <h1 className="text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+                        Contactar al Creador
+                      </h1>
+                      <p className="text-[#a89a82] text-sm mt-1">¿Tienes una idea personalizada? Escríbenos</p>
+                    </div>
+                    <div className="bg-[#141210] border border-[#2a2520] rounded-xl p-6">
+                      <CreatorContact defaultName={profile.nombre} defaultEmail={profile.email} />
+                    </div>
+                  </div>
+                }
+              />
+              <Route path="*" element={<Navigate to={PROFILE_ROUTES.overview} replace />} />
+            </Routes>
           </div>
         </div>
       </div>

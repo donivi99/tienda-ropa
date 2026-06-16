@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useOptimistic, useState, useTransition } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { PROFILE_ROUTES } from '../../constants/profileRoutes';
 import { api } from '../../services/api';
 import type { CartItem, ShippingAddress } from '../../types';
 import { formatDateTime, formatEuro, shortOrderId, statusBadgeClass, statusLabel } from '../../utils/orderUi';
+import AddressDisplay from '../shipping/AddressDisplay';
 
 type OrderStatus = 'pagado' | 'enviado' | 'entregado' | 'cancelado';
 
@@ -31,19 +33,17 @@ interface ProfileOrdersTabProps {
   orders: UserOrder[];
   ordersLoading: boolean;
   ordersError: string | null;
-  initialOrderId?: string | null;
   onOrdersChange: (orders: UserOrder[]) => void;
-  onClearOrderIdParam: () => void;
 }
 
 export default function ProfileOrdersTab({
   orders,
   ordersLoading,
   ordersError,
-  initialOrderId,
   onOrdersChange,
-  onClearOrderIdParam,
 }: ProfileOrdersTabProps) {
+  const navigate = useNavigate();
+  const { orderId } = useParams<{ orderId?: string }>();
   const [optimisticOrders, dispatchOptimistic] = useOptimistic(orders, applyOptimistic);
   const [, startTransition] = useTransition();
   const [detailOrder, setDetailOrder] = useState<UserOrder | null>(null);
@@ -75,16 +75,21 @@ export default function ProfileOrdersTab({
   }, [orders]);
 
   useEffect(() => {
-    if (initialOrderId) {
-      void openDetail(initialOrderId);
+    if (orderId) {
+      void openDetail(orderId);
+    } else {
+      setDetailOrder(null);
+      setDetailError('');
+      setCancelError('');
     }
-  }, [initialOrderId, openDetail]);
+  }, [orderId, openDetail]);
 
   const closeDetail = () => {
-    setDetailOrder(null);
-    setDetailError('');
-    setCancelError('');
-    onClearOrderIdParam();
+    navigate(PROFILE_ROUTES.orders);
+  };
+
+  const openOrderDetail = (id: string) => {
+    navigate(PROFILE_ROUTES.orderDetail(id));
   };
 
   const handleCancel = async (orderId: string) => {
@@ -173,7 +178,7 @@ export default function ProfileOrdersTab({
                   <tr
                     key={order.id}
                     className="cursor-pointer hover:bg-[#1e1b18]/60 transition-colors"
-                    onClick={() => void openDetail(order.id)}
+                    onClick={() => openOrderDetail(order.id)}
                   >
                     <td className="px-4 py-3 font-mono text-[#f5e6c8]">{shortOrderId(order.id)}</td>
                     <td className="px-4 py-3 text-[#a89a82]">{formatDateTime(order.createdAt)}</td>
@@ -257,16 +262,8 @@ export default function ProfileOrdersTab({
                   {detailOrder.shippingAddress && (
                     <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
                       <p className="text-[0.65rem] uppercase tracking-wider text-[#a89a82]">Dirección de envío</p>
-                      <div className="mt-3 space-y-1 text-sm text-[#f5e6c8]">
-                        <p>{detailOrder.shippingAddress.nombre}</p>
-                        <p>{detailOrder.shippingAddress.calle}</p>
-                        <p>
-                          {detailOrder.shippingAddress.codigoPostal}{' '}
-                          {detailOrder.shippingAddress.ciudad}, {detailOrder.shippingAddress.provincia}
-                        </p>
-                        {detailOrder.shippingAddress.referencias && (
-                          <p className="text-[#a89a82]">Ref: {detailOrder.shippingAddress.referencias}</p>
-                        )}
+                      <div className="mt-3">
+                        <AddressDisplay address={detailOrder.shippingAddress} />
                       </div>
                     </div>
                   )}

@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
+import { PROFILE_ROUTES } from '../../constants/profileRoutes';
 import type { UserOrderStats } from '../../utils/orderStats';
+import { formatStreetLine } from '../../utils/orderUi';
 import { formatDateTime, formatEuro, shortOrderId, statusBadgeClass, statusLabel } from '../../utils/orderUi';
 
 export interface ProfileOrderSummary {
@@ -15,6 +17,7 @@ interface UserProfileData {
   phone?: string;
   address?: {
     calle?: string;
+    numero?: string;
     ciudad?: string;
   };
 }
@@ -24,8 +27,6 @@ interface ProfileOverviewProps {
   stats: UserOrderStats;
   recentOrders: ProfileOrderSummary[];
   ordersLoading: boolean;
-  onGoToOrders: () => void;
-  onViewOrder: (orderId: string) => void;
 }
 
 export default function ProfileOverview({
@@ -33,8 +34,6 @@ export default function ProfileOverview({
   stats,
   recentOrders,
   ordersLoading,
-  onGoToOrders,
-  onViewOrder,
 }: ProfileOverviewProps) {
   return (
     <div className="space-y-6" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
@@ -115,7 +114,11 @@ export default function ProfileOverview({
               <div>
                 <p className="text-xs text-[#a89a82] uppercase tracking-wider">Dirección</p>
                 <p className="text-sm text-[#f5e6c8] mt-1">
-                  {profile.address.calle}{profile.address.ciudad ? `, ${profile.address.ciudad}` : ''}
+                  {formatStreetLine({
+                    calle: profile.address.calle,
+                    numero: profile.address.numero ?? '',
+                  })}
+                  {profile.address.ciudad ? `, ${profile.address.ciudad}` : ''}
                 </p>
               </div>
             )}
@@ -129,20 +132,18 @@ export default function ProfileOverview({
             <h3 className="text-sm font-semibold text-[#d4af37] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
               Últimos pedidos
             </h3>
-            <button
-              type="button"
-              onClick={onGoToOrders}
+            <Link
+              to={PROFILE_ROUTES.orders}
               className="text-xs uppercase tracking-wider text-[#d4af37] hover:text-[#f5e6c8] transition-colors"
             >
               Ver todos
-            </button>
+            </Link>
           </div>
           <ul className="divide-y divide-[#2a2520]">
             {recentOrders.map((order) => (
               <li key={order.id}>
-                <button
-                  type="button"
-                  onClick={() => onViewOrder(order.id)}
+                <Link
+                  to={PROFILE_ROUTES.orderDetail(order.id)}
                   className="w-full flex items-center justify-between gap-4 py-3 text-left hover:bg-[#1e1b18]/50 -mx-2 px-2 rounded-lg transition-colors"
                 >
                   <div className="min-w-0">
@@ -155,7 +156,7 @@ export default function ProfileOverview({
                     </span>
                     <span className="text-sm font-semibold text-[#d4af37] tabular-nums">{formatEuro(order.total)}</span>
                   </div>
-                </button>
+                </Link>
               </li>
             ))}
           </ul>

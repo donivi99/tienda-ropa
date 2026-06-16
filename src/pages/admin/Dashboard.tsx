@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/api';
 import type { CartItem, ShippingAddress } from '../../types';
+import AddressDisplay from '../../components/shipping/AddressDisplay';
 
 interface DashboardStats {
   totalUsers: number;
@@ -293,18 +294,7 @@ export default function AdminDashboard() {
                     {selectedOrder.shippingAddress && (
                       <div className="mb-6 rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">
                         <p className="mb-3 text-xs uppercase tracking-wider text-[#a89a82]">Dirección de envío</p>
-                        <div className="space-y-1 text-sm text-[#f5e6c8]">
-                          <p>{selectedOrder.shippingAddress.nombre}</p>
-                          <p className="text-[#a89a82]">Tel: {selectedOrder.shippingAddress.telefono}</p>
-                          <p>{selectedOrder.shippingAddress.calle}</p>
-                          <p>
-                            {selectedOrder.shippingAddress.codigoPostal}{' '}
-                            {selectedOrder.shippingAddress.ciudad}, {selectedOrder.shippingAddress.provincia}
-                          </p>
-                          {selectedOrder.shippingAddress.referencias && (
-                            <p className="text-xs text-[#a89a82]">Ref: {selectedOrder.shippingAddress.referencias}</p>
-                          )}
-                        </div>
+                        <AddressDisplay address={selectedOrder.shippingAddress} />
                       </div>
                     )}
 

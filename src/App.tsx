@@ -37,7 +37,7 @@ export default function App() {
               <Route path="/pedido-confirmado" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
               <Route path="/iniciar-sesion" element={<Login />} />
               <Route path="/sobre-nosotros" element={<SobreNosotros />} />
-              <Route path="/mi-cuenta" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/mi-cuenta/*" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/cargar-productos" element={<SeedPage />} />
 
               <Route path="/administrador" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

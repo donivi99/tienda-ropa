@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
-
-const CP_REGEX = /^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/;
+import AddressFields from '../shipping/AddressFields';
+import type { ShippingAddress } from '../../types';
+import {
+  profileToShippingAddress,
+  shippingAddressToProfileUpdate,
+  validateShippingAddress,
+} from '../../utils/shippingAddress';
 
 interface ProfileData {
   nombre: string;
   phone?: string;
-  address?: {
-    calle?: string;
-    ciudad?: string;
-    provincia?: string;
-    codigoPostal?: string;
-    referencias?: string;
-  };
+  address?: ShippingAddress;
 }
 
 interface ProfileDataFormProps {
@@ -23,67 +22,32 @@ interface ProfileDataFormProps {
 export default function ProfileDataForm({ profile, onSaved }: ProfileDataFormProps) {
   const [nombre, setNombre] = useState('');
   const [phone, setPhone] = useState('');
-  const [calle, setCalle] = useState('');
-  const [ciudad, setCiudad] = useState('');
-  const [provincia, setProvincia] = useState('');
-  const [codigoPostal, setCodigoPostal] = useState('');
-  const [referencias, setReferencias] = useState('');
+  const [street, setStreet] = useState(() => profileToShippingAddress(profile ?? undefined));
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     if (!profile) return;
-    setNombre(profile.nombre || '');
-    setPhone(profile.phone || '');
-    setCalle(profile.address?.calle || '');
-    setCiudad(profile.address?.ciudad || '');
-    setProvincia(profile.address?.provincia || '');
-    setCodigoPostal(profile.address?.codigoPostal || '');
-    setReferencias(profile.address?.referencias || '');
+    const fromProfile = profileToShippingAddress(profile);
+    setNombre(fromProfile.nombre);
+    setPhone(fromProfile.telefono);
+    setStreet(fromProfile);
   }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!nombre.trim() || nombre.trim().length < 2 || nombre.length > 100) {
-      setSaveMsg({ type: 'err', text: 'Nombre inválido (2-100 caracteres)' });
-      return;
-    }
-    if (!phone.trim() || phone.trim().length < 6 || phone.length > 20) {
-      setSaveMsg({ type: 'err', text: 'Teléfono inválido (6-20 caracteres)' });
-      return;
-    }
-    if (!calle.trim() || calle.trim().length < 3 || calle.length > 200) {
-      setSaveMsg({ type: 'err', text: 'Calle inválida (3-200 caracteres)' });
-      return;
-    }
-    if (!ciudad.trim() || ciudad.trim().length < 2 || ciudad.length > 100) {
-      setSaveMsg({ type: 'err', text: 'Ciudad inválida (2-100 caracteres)' });
-      return;
-    }
-    if (!provincia.trim() || provincia.trim().length < 2 || provincia.length > 100) {
-      setSaveMsg({ type: 'err', text: 'Provincia inválida (2-100 caracteres)' });
-      return;
-    }
-    if (!CP_REGEX.test(codigoPostal.trim())) {
-      setSaveMsg({ type: 'err', text: 'Código postal inválido' });
+    const shippingAddress: ShippingAddress = { ...street, nombre: nombre.trim(), telefono: phone.trim() };
+    const validationError = validateShippingAddress(shippingAddress);
+    if (validationError) {
+      setSaveMsg({ type: 'err', text: validationError });
       return;
     }
 
     setSaving(true);
     setSaveMsg(null);
     try {
-      await api.put('/api/auth/me', {
-        nombre: nombre.trim(),
-        phone: phone.trim(),
-        address: {
-          calle: calle.trim(),
-          ciudad: ciudad.trim(),
-          provincia: provincia.trim(),
-          codigoPostal: codigoPostal.trim(),
-          referencias: referencias.trim() || undefined,
-        },
-      });
+      await api.put('/api/auth/me', shippingAddressToProfileUpdate(shippingAddress));
       await onSaved();
       setSaveMsg({ type: 'ok', text: 'Datos guardados correctamente' });
     } catch (err) {
@@ -141,85 +105,12 @@ export default function ProfileDataForm({ profile, onSaved }: ProfileDataFormPro
           />
         </div>
 
-        <div>
-          <label htmlFor="profile-calle" className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">
-            Calle *
-          </label>
-          <input
-            id="profile-calle"
-            type="text"
-            required
-            value={calle}
-            onChange={(e) => setCalle(e.target.value)}
-            placeholder="Calle Mayor 15"
-            maxLength={200}
-            className={inputClass}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="profile-ciudad" className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">
-              Ciudad *
-            </label>
-            <input
-              id="profile-ciudad"
-              type="text"
-              required
-              value={ciudad}
-              onChange={(e) => setCiudad(e.target.value)}
-              placeholder="Madrid"
-              maxLength={100}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="profile-provincia" className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">
-              Provincia *
-            </label>
-            <input
-              id="profile-provincia"
-              type="text"
-              required
-              value={provincia}
-              onChange={(e) => setProvincia(e.target.value)}
-              placeholder="Madrid"
-              maxLength={100}
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="profile-cp" className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">
-            Código Postal *
-          </label>
-          <input
-            id="profile-cp"
-            type="text"
-            required
-            value={codigoPostal}
-            onChange={(e) => setCodigoPostal(e.target.value)}
-            placeholder="28001"
-            maxLength={5}
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label htmlFor="profile-ref" className="block text-xs text-[#a89a82] uppercase tracking-wider mb-1.5">
-            Referencias
-          </label>
-          <textarea
-            id="profile-ref"
-            value={referencias}
-            onChange={(e) => setReferencias(e.target.value)}
-            placeholder="Piso 2B, timbre izquierdo..."
-            rows={2}
-            maxLength={300}
-            className={`${inputClass} resize-none`}
-          />
-        </div>
+        <AddressFields
+          idPrefix="profile"
+          value={street}
+          onChange={(patch) => setStreet((current) => ({ ...current, ...patch }))}
+          inputClass={inputClass}
+        />
 
         {saveMsg && (
           <div

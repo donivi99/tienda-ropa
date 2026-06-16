@@ -3,13 +3,13 @@ import { registerUser, getUserProfile, updateUserProfile, getAllUsers, setUserRo
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
 import { getAdminAuth, getAdminDb } from '../config/firebase.js';
-import { sanitizeAddress, validateAddressFields } from '../utils/validation.js';
+import { sanitizeAddress, validateProfileAddressFields } from '../utils/validation.js';
+import { isProtectedAdminEmail } from '../constants/admin.js';
 import type { AuthRequest } from '../types/index.js';
 
 const router = Router();
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const CP_REGEX = /^(0[1-9]|[1-4]\d|5[0-2])\d{3}$/;
 
 router.post('/check-email', async (req, res) => {
   try {
@@ -45,8 +45,7 @@ router.post('/login', authMiddleware, async (req: AuthRequest, res) => {
     let profile = await getUserProfile(req.user!.uid);
 
     if (!profile) {
-      const adminEmail = process.env.ADMIN_SEED_EMAIL;
-      const defaultRole = adminEmail && email === adminEmail ? 'admin' : 'user';
+      const defaultRole = isProtectedAdminEmail(email) ? 'admin' : 'user';
 
       const db = getAdminDb();
       const auth = getAdminAuth();
@@ -80,8 +79,7 @@ router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
       res.status(400).json({ error: 'Nombre inválido (2-100 caracteres)' });
       return;
     }
-    const adminEmail = process.env.ADMIN_SEED_EMAIL;
-    const role = adminEmail && email === adminEmail ? 'admin' : 'user';
+    const role = isProtectedAdminEmail(email) ? 'admin' : 'user';
     const user = await registerUser(req.user!.uid, email, nombre.trim(), role);
     res.status(201).json(user);
   } catch (err) {
@@ -127,25 +125,9 @@ router.put('/me', authMiddleware, async (req: AuthRequest, res) => {
         res.status(400).json({ error: 'Dirección inválida' });
         return;
       }
-      const addrErr = validateAddressFields(address as Record<string, unknown>);
+      const addrErr = validateProfileAddressFields(address as Record<string, unknown>);
       if (addrErr) {
         res.status(400).json({ error: addrErr });
-        return;
-      }
-      if (address.calle && (typeof address.calle !== 'string' || address.calle.trim().length < 3)) {
-        res.status(400).json({ error: 'Calle inválida (mínimo 3 caracteres)' });
-        return;
-      }
-      if (address.ciudad && (typeof address.ciudad !== 'string' || address.ciudad.trim().length < 2)) {
-        res.status(400).json({ error: 'Ciudad inválida (mínimo 2 caracteres)' });
-        return;
-      }
-      if (address.provincia && (typeof address.provincia !== 'string' || address.provincia.trim().length < 2)) {
-        res.status(400).json({ error: 'Provincia inválida (mínimo 2 caracteres)' });
-        return;
-      }
-      if (address.codigoPostal && (typeof address.codigoPostal !== 'string' || !CP_REGEX.test(address.codigoPostal.trim()))) {
-        res.status(400).json({ error: 'Código postal inválido' });
         return;
       }
     }
@@ -180,12 +162,6 @@ router.put('/users/:uid/role', authMiddleware, adminMiddleware, async (req: Auth
       return;
     }
 
-    const adminEmail = process.env.ADMIN_SEED_EMAIL;
-    if (!adminEmail) {
-      res.status(500).json({ error: 'ADMIN_SEED_EMAIL no configurado en el servidor' });
-      return;
-    }
-
     if (req.user!.uid === req.params.uid) {
       res.status(403).json({ error: 'No puedes cambiar tu propio rol' });
       return;
@@ -198,7 +174,7 @@ router.put('/users/:uid/role', authMiddleware, adminMiddleware, async (req: Auth
     }
 
     const targetData = targetDoc.data();
-    if (targetData?.email === adminEmail) {
+    if (isProtectedAdminEmail(targetData?.email as string | undefined)) {
       console.warn(`Intento de cambiar rol del admin principal: uid=${req.user!.uid}, target=${req.params.uid}`);
       res.status(403).json({ error: 'No se puede cambiar el rol del administrador principal' });
       return;

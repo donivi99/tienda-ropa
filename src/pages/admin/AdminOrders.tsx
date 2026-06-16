@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AdminSelect, ORDER_STATUS_TONES, orderStatusOptions } from '../../components/admin/AdminSelect';
 import { api } from '../../services/api';
 import type { CartItem, ShippingAddress } from '../../types';
+import AddressDisplay from '../../components/shipping/AddressDisplay';
+import { formatAddress } from '../../utils/orderUi';
 
 type OrderStatus = 'pagado' | 'enviado' | 'entregado' | 'cancelado';
 type DateFilter = 'all' | 'today' | 'week' | 'month';
@@ -74,16 +76,6 @@ function formatDateTime(iso: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function formatAddress(addr: ShippingAddress) {
-  const lines = [
-    `${addr.nombre} · ${addr.telefono}`,
-    addr.calle,
-    `${addr.codigoPostal} ${addr.ciudad}, ${addr.provincia}`,
-  ];
-  if (addr.referencias?.trim()) lines.push(addr.referencias.trim());
-  return lines.join('\n');
 }
 
 function isStalePagado(order: AdminOrder) {
@@ -360,7 +352,7 @@ export default function AdminOrders() {
           <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[#a89a82]">
             Pagados +{STALE_PAGADO_DAYS}d sin enviar
           </p>
-          <p className={`mt-1 text-2xl font-semibold ${summary.stalePending > 0 ? 'text-red-400' : 'text-[#f5e6c8]'}`}>
+          <p className={`mt-1 text-2xl font-semibold ${summary.stalePending > 0 ? 'text-amber-400' : 'text-[#f5e6c8]'}`}>
             {summary.stalePending}
           </p>
         </div>
@@ -451,13 +443,13 @@ export default function AdminOrders() {
                   key={order.id}
                   onClick={() => openDetail(order.id)}
                   className={`cursor-pointer transition-colors hover:bg-[#141210]/50 ${
-                    stale ? 'bg-red-500/5 border-l-2 border-l-red-500/50' : ''
+                    stale ? 'bg-amber-500/5 border-l-2 border-l-amber-500/50' : ''
                   } ${order.status === 'cancelado' ? 'opacity-60' : ''}`}
                 >
                   <td className="px-4 py-3 font-mono text-xs text-[#f5e6c8]">
                     <span title={order.id}>{order.id.slice(0, 8)}…</span>
                     {stale && (
-                      <span className="ml-2 inline-block rounded bg-red-500/20 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wider text-red-400">
+                      <span className="ml-2 inline-block rounded bg-amber-500/15 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wider text-amber-400">
                         Urgente
                       </span>
                     )}
@@ -623,16 +615,9 @@ export default function AdminOrders() {
                           Copiar dirección
                         </button>
                       </div>
-                      <div className="mt-3 space-y-1 text-sm text-[#f5e6c8]">
-                        <p>{detailOrder.shippingAddress.nombre}</p>
-                        <p>{detailOrder.shippingAddress.calle}</p>
-                        <p>
-                          {detailOrder.shippingAddress.codigoPostal}{' '}
-                          {detailOrder.shippingAddress.ciudad}, {detailOrder.shippingAddress.provincia}
-                        </p>
-                        {detailOrder.shippingAddress.referencias && (
-                          <p className="text-[#a89a82]">Ref: {detailOrder.shippingAddress.referencias}</p>
-                        )}
+                      {copyMsg && <p className="mt-2 text-xs text-[#d4af37]">{copyMsg}</p>}
+                      <div className="mt-3">
+                        <AddressDisplay address={detailOrder.shippingAddress} />
                       </div>
                     </div>
                   )}

@@ -1,17 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import type { ShippingAddress } from '../types';
+import AddressDisplay from '../components/shipping/AddressDisplay';
 
 interface OrderConfirmationState {
   orderId?: string;
   total?: number;
-  shippingAddress?: {
-    nombre: string;
-    calle: string;
-    ciudad: string;
-    provincia: string;
-    codigoPostal: string;
-  };
+  shippingAddress?: ShippingAddress;
 }
 
 interface OrderResponse {
@@ -20,7 +16,7 @@ interface OrderResponse {
   total?: number;
   subtotal?: number;
   shippingFee?: number;
-  shippingAddress?: OrderConfirmationState['shippingAddress'];
+  shippingAddress?: ShippingAddress;
 }
 
 export default function OrderConfirmation() {
@@ -112,13 +108,7 @@ export default function OrderConfirmation() {
         {shippingAddress && (
           <div className="p-4 rounded-xl bg-[#1e1b18] border border-[#2a2520] mb-8">
             <p className="text-xs uppercase tracking-wider text-[#a89a82] mb-3">Dirección de envío</p>
-            <div className="text-sm text-[#f5e6c8] space-y-1">
-              <p>{shippingAddress.nombre}</p>
-              <p>{shippingAddress.calle}</p>
-              <p>
-                {shippingAddress.codigoPostal} {shippingAddress.ciudad}, {shippingAddress.provincia}
-              </p>
-            </div>
+            <AddressDisplay address={shippingAddress} />
           </div>
         )}
 
@@ -128,7 +118,7 @@ export default function OrderConfirmation() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           <Link
-            to={`/mi-cuenta?tab=orders${orderId ? `&orderId=${orderId}` : ''}`}
+            to={orderId ? `/mi-cuenta/pedidos/${orderId}` : '/mi-cuenta/pedidos'}
             className="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-[#d4af37] text-[#0a0a0a] font-bold uppercase tracking-wider"
           >
             Ver mis pedidos
