@@ -25,7 +25,7 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 VITE_API_URL=http://localhost:3000
 ```
 
-**Backend** — ver [backend/README.md](./backend/README.md#configuración) para `serviceAccountKey.json` y `backend/.env`.
+**Backend** — ver [backend/README.md](./backend/README.md#configuración) para `backend/.env` (Firebase Admin + seeds).
 
 Resumen del backend:
 
@@ -33,12 +33,15 @@ Resumen del backend:
 # backend/.env
 PORT=3000
 CORS_ORIGIN=http://localhost:3001
+FIREBASE_PROJECT_ID=tu-proyecto-id
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@tu-proyecto.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ADMIN_SEED_EMAIL=admin@tiendaropa.com
 ADMIN_SEED_PASSWORD=pon_una_contraseña_segura
 ADMIN_SEED_NAME=Administrador
 ```
 
-> No subas `.env`, `backend/.env` ni `backend/serviceAccountKey.json` al repositorio.
+> No subas `.env` ni `backend/.env` al repositorio.
 
 ### 3. Habilitar Email/Password en Firebase
 

@@ -20,7 +20,7 @@ API REST en Express + TypeScript. Autenticación con Firebase Auth; persistencia
 ```
 backend/src/
 ├── index.ts              # Express app, Helmet, CORS, rate limit
-├── config/firebase.ts    # Admin SDK (serviceAccountKey.json)
+├── config/firebase.ts    # Admin SDK (credenciales en .env)
 ├── middleware/
 │   ├── auth.ts           # verifyIdToken (checkRevoked)
 │   ├── admin.ts          # rol admin
@@ -38,16 +38,24 @@ backend/src/
 
 ## Configuración
 
-### Credenciales
+### Credenciales Firebase Admin
 
 1. Firebase Console → Project Settings → Service Accounts → **Generate new private key**
-2. Guardar como `backend/serviceAccountKey.json` (no versionar)
+2. Copia `project_id`, `client_email` y `private_key` del JSON descargado a `backend/.env` (ver abajo)
+3. En `private_key`, conserva los saltos de línea como `\n` dentro de comillas dobles. No guardes el JSON en el repo.
 
 ### Variables de entorno (`backend/.env`)
+
+Copia `backend/.env.example` y rellena los valores:
 
 ```bash
 PORT=3000
 CORS_ORIGIN=http://localhost:3001
+
+FIREBASE_PROJECT_ID=tu-proyecto-id
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@tu-proyecto.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
 ADMIN_SEED_EMAIL=admin@tiendaropa.com
 ADMIN_SEED_PASSWORD=pon_una_contraseña_segura
 ADMIN_SEED_NAME=Administrador

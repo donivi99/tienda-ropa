@@ -11,4 +11,4 @@ alwaysApply: false
 - Paginación y caché para minimizar lecturas Firestore
 - Retry con backoff en APIs externas (Cloudinary, etc.)
 - Validación en middleware antes de servicios
-- Credenciales solo vía env y `serviceAccountKey.json` local
+- Credenciales Firebase Admin vía `FIREBASE_*` en `backend/.env`

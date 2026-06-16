@@ -1,12 +1,5 @@
 import 'dotenv/config';
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { getAdminAuth, getAdminDb } from '../config/firebase.js';
 
 const ADMIN_EMAIL = process.env.ADMIN_SEED_EMAIL;
 const ADMIN_PASSWORD = process.env.ADMIN_SEED_PASSWORD;
@@ -18,15 +11,8 @@ async function seedAdmin() {
     process.exit(1);
   }
 
-  const serviceAccountPath = path.resolve(__dirname, '../../serviceAccountKey.json');
-  const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf-8'));
-
-  const app = initializeApp({
-    credential: cert(serviceAccount),
-  });
-
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  const auth = getAdminAuth();
+  const db = getAdminDb();
 
   try {
     let userRecord;
