@@ -72,9 +72,6 @@ export default function Navbar() {
             </div>
 
             <div className="flex items-center gap-4">
-              <Link to="/cargar-productos" className="text-xs text-[#a89a82] hover:text-[#d4af37] transition-colors" title="Cargar productos de prueba">
-                Seed
-              </Link>
               {user ? (
                 <>
                   {isAdmin && (
