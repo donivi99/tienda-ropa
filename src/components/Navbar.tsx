@@ -59,7 +59,7 @@ export default function Navbar() {
       <nav className="sticky top-0 z-40 bg-[#0a0a0a] border-b border-[#2a2520]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="text-xl font-bold text-[#d4af37] tracking-widest uppercase" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+            <Link to="/" className="font-heading text-xl font-bold text-[#d4af37] tracking-widest uppercase">
               tiendaRopa
             </Link>
 

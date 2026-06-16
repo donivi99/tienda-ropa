@@ -49,7 +49,7 @@ function HomeLanding() {
               Nueva Colección 2026
             </div>
 
-            <h1 className="text-5xl font-semibold leading-[1.05] text-[#f5e6c8] sm:text-6xl lg:text-7xl xl:text-[5.5rem]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+            <h1 className="font-heading text-5xl font-semibold leading-[1.05] text-[#f5e6c8] sm:text-6xl lg:text-7xl xl:text-[5.5rem]">
               Moda con<br />
               <span className="text-[#d4af37]">carácter</span>,<br />
               sin ruido.
@@ -98,7 +98,7 @@ function HomeLanding() {
                 </span>
               </div>
               <div>
-                <h2 className="text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+                <h2 className="font-heading text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl">
                   Mujer
                 </h2>
                 <p className="mt-3 max-w-sm text-sm leading-6 text-[#a89a82]">
@@ -124,7 +124,7 @@ function HomeLanding() {
                 </span>
               </div>
               <div>
-                <h2 className="text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+                <h2 className="font-heading text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl">
                   Hombre
                 </h2>
                 <p className="mt-3 max-w-sm text-sm leading-6 text-[#a89a82]">
@@ -145,7 +145,7 @@ function HomeLanding() {
           <div className="grid items-center gap-10 lg:grid-cols-[1fr_auto_1fr]">
             <div className="space-y-3">
               <p className="text-[0.65rem] uppercase tracking-[0.34em] text-[#d4af37]">Por qué elegirnos</p>
-              <h2 className="text-2xl font-semibold text-[#f5e6c8] sm:text-3xl" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+              <h2 className="font-heading text-2xl font-semibold text-[#f5e6c8] sm:text-3xl">
                 Hecho para durar
               </h2>
             </div>
@@ -173,7 +173,7 @@ function HomeLanding() {
         <div className="flex items-end justify-between gap-6 mb-10">
           <div>
             <p className="text-[0.65rem] uppercase tracking-[0.34em] text-[#d4af37]">Selección</p>
-            <h2 className="mt-2 text-3xl font-semibold text-[#f5e6c8] sm:text-4xl" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+            <h2 className="font-heading mt-2 text-3xl font-semibold text-[#f5e6c8] sm:text-4xl">
               Lo más vendido
             </h2>
           </div>
@@ -209,7 +209,7 @@ function HomeLanding() {
           <div className="grid lg:grid-cols-2">
             <div className="flex flex-col justify-center p-8 sm:p-10 lg:p-14">
               <p className="text-[0.65rem] uppercase tracking-[0.34em] text-[#d4af37]">Edición limitada</p>
-              <h2 className="mt-4 text-3xl font-semibold text-[#f5e6c8] sm:text-4xl" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+              <h2 className="font-heading mt-4 text-3xl font-semibold text-[#f5e6c8] sm:text-4xl">
                 Essentials de temporada
               </h2>
               <p className="mt-4 max-w-md text-sm leading-7 text-[#a89a82]">
@@ -233,7 +233,7 @@ function HomeLanding() {
             <div className="relative min-h-[300px] bg-gradient-to-br from-[#d4af37]/10 via-[#141210] to-[#f5e6c8]/5 lg:min-h-[400px]">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <p className="text-6xl font-semibold text-[#d4af37]/20" style={{ fontFamily: '"Bodoni Moda", serif' }}>TR</p>
+                  <p className="font-heading text-6xl font-semibold text-[#d4af37]/20">TR</p>
                   <p className="mt-2 text-[0.6rem] uppercase tracking-[0.4em] text-[#a89a82]/40">tiendaRopa</p>
                 </div>
               </div>

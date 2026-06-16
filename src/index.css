@@ -12,15 +12,21 @@
   --color-border: #2a2520;
   --color-surface: #141210;
   --color-surface-hover: #1e1b18;
+  --font-family-heading: 'Bodoni Moda', Georgia, serif;
+  --font-family-body: 'Merriweather', Georgia, serif;
 }
 
 body {
   margin: 0;
-  font-family: 'Merriweather', Georgia, serif;
+  font-family: var(--font-family-body);
   background-color: var(--color-bg);
   color: var(--color-cream);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.font-heading {
+  font-family: var(--font-family-heading);
 }
 
 * {

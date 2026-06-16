@@ -23,7 +23,7 @@ export default function SobreNosotros() {
             <span className="h-1.5 w-1.5 rounded-full bg-[#d4af37]" />
             Nuestra marca
           </div>
-          <h1 className="text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <h1 className="font-heading text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl">
             Sobre Nosotros
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-base leading-7 text-[#a89a82] sm:text-lg">
@@ -35,7 +35,7 @@ export default function SobreNosotros() {
           <div className="rounded-[2rem] border border-white/8 bg-[#11100e]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur-xl sm:p-8 lg:p-10">
             <div className="grid gap-10 lg:grid-cols-[1fr_0.6fr] lg:items-center">
               <div className="space-y-5">
-                <h2 className="text-2xl font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+                <h2 className="font-heading text-2xl font-semibold text-[#f5e6c8]">
                   Nuestra Historia
                 </h2>
                 <p className="text-[#a89a82] leading-7">
@@ -72,7 +72,7 @@ export default function SobreNosotros() {
         </section>
 
         <section className="mb-16">
-          <h2 className="text-center text-2xl font-semibold text-[#f5e6c8] mb-10" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <h2 className="font-heading text-center text-2xl font-semibold text-[#f5e6c8] mb-10">
             Nuestros Valores
           </h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -84,7 +84,7 @@ export default function SobreNosotros() {
             ].map((v) => (
               <div key={v.title} className="rounded-2xl border border-white/8 bg-[#141210] p-6 transition-all hover:border-[#d4af37]/30 hover:-translate-y-1">
                 <span className="text-2xl text-[#d4af37]">{v.icon}</span>
-                <h3 className="mt-4 text-lg font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>{v.title}</h3>
+                <h3 className="font-heading mt-4 text-lg font-semibold text-[#f5e6c8]">{v.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-[#a89a82]">{v.desc}</p>
               </div>
             ))}
@@ -93,7 +93,7 @@ export default function SobreNosotros() {
 
         <section className="mb-16">
           <div className="rounded-[2rem] border border-white/8 bg-[#11100e]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur-xl sm:p-8 lg:p-10">
-            <h2 className="text-2xl font-semibold text-[#f5e6c8] mb-6" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+            <h2 className="font-heading text-2xl font-semibold text-[#f5e6c8] mb-6">
               Nuestra Misión
             </h2>
             <div className="grid gap-8 lg:grid-cols-2">
@@ -118,7 +118,7 @@ export default function SobreNosotros() {
         </section>
 
         <section className="mb-16">
-          <h2 className="text-center text-2xl font-semibold text-[#f5e6c8] mb-10" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <h2 className="font-heading text-center text-2xl font-semibold text-[#f5e6c8] mb-10">
             Lo que nos define
           </h2>
           <div className="grid gap-5 sm:grid-cols-3">
@@ -128,7 +128,7 @@ export default function SobreNosotros() {
               { title: 'Soporte Real', desc: 'Un equipo humano que responde rápido y resuelve de verdad.' },
             ].map((item) => (
               <div key={item.title} className="rounded-2xl border border-[#2a2520] bg-[#141210] p-6">
-                <h3 className="text-base font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>{item.title}</h3>
+                <h3 className="font-heading text-base font-semibold text-[#f5e6c8]">{item.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-[#a89a82]">{item.desc}</p>
               </div>
             ))}
@@ -138,7 +138,7 @@ export default function SobreNosotros() {
         <section>
           <div className="rounded-[2rem] border border-white/8 bg-[#11100e]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur-xl sm:p-8 lg:p-10">
             <div className="text-center mb-10">
-              <h3 className="text-2xl font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+              <h3 className="font-heading text-2xl font-semibold text-[#f5e6c8]">
                 Contactanos
               </h3>
               <p className="mt-3 text-[#a89a82]">

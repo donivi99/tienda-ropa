@@ -6,6 +6,7 @@ export async function getAllProducts(filters?: {
   genero?: string;
   tipo?: string;
   category?: string;
+  activeOnly?: boolean;
 }) {
   const db = getAdminDb();
   let query: FirebaseFirestore.Query = db.collection('products');
@@ -15,7 +16,17 @@ export async function getAllProducts(filters?: {
   if (filters?.category) query = query.where('category', '==', filters.category);
 
   const snapshot = await query.orderBy('price', 'asc').get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const products = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  if (filters?.activeOnly) {
+    return products.filter((p) => (p as { isActive?: boolean }).isActive !== false);
+  }
+
+  return products;
+}
+
+export async function getAllProductsAdmin() {
+  return getAllProducts();
 }
 
 export async function getProductById(id: string) {

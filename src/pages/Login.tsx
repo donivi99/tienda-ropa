@@ -180,7 +180,7 @@ export default function Login() {
     <div className="min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link to="/" className="text-2xl font-bold text-[#d4af37] tracking-widest uppercase" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <Link to="/" className="font-heading text-2xl font-bold text-[#d4af37] tracking-widest uppercase">
             tiendaRopa
           </Link>
         </div>

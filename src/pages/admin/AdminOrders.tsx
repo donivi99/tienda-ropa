@@ -137,8 +137,22 @@ export default function AdminOrders() {
 
   const fetchOrders = async () => {
     try {
-      const data = await api.get<AdminOrder[]>('/api/admin/orders');
-      setOrders(data);
+      const allOrders: AdminOrder[] = [];
+      let cursor: string | undefined;
+
+      do {
+        const query = new URLSearchParams({ limit: '100' });
+        if (cursor) query.set('cursor', cursor);
+        const data = await api.get<{
+          orders: AdminOrder[];
+          nextCursor: string | null;
+          hasMore: boolean;
+        }>(`/api/admin/orders?${query.toString()}`);
+        allOrders.push(...data.orders);
+        cursor = data.hasMore && data.nextCursor ? data.nextCursor : undefined;
+      } while (cursor);
+
+      setOrders(allOrders);
     } catch (err) {
       console.error(err);
       showToast('Error al cargar pedidos', 'error');
@@ -333,7 +347,7 @@ export default function AdminOrders() {
       )}
 
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+        <h1 className="font-heading text-3xl font-semibold text-[#f5e6c8]">
           Pedidos
         </h1>
         <p className="mt-1 text-sm text-[#a89a82]">

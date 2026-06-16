@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authMiddleware } from '../middleware/auth.js';
 import { createCreatorMessage } from '../services/contactService.js';
+import { validate, validateContactMessage } from '../middleware/validate.js';
 import type { AuthRequest } from '../types/index.js';
 
 const router = Router();
@@ -18,18 +19,13 @@ const contactLimiter = rateLimit({
   },
 });
 
-router.post('/', authMiddleware, contactLimiter, async (req: AuthRequest, res) => {
+router.post('/', authMiddleware, contactLimiter, validate(validateContactMessage), async (req: AuthRequest, res) => {
   try {
-    const { clientName, message, customRequest } = req.body;
-
-    if (!clientName || typeof clientName !== 'string' || clientName.trim().length < 2 || clientName.length > 100) {
-      res.status(400).json({ error: 'Nombre inválido (2-100 caracteres)' });
-      return;
-    }
-    if (!message || typeof message !== 'string' || message.trim().length < 10 || message.length > 2000) {
-      res.status(400).json({ error: 'Mensaje inválido (10-2000 caracteres)' });
-      return;
-    }
+    const { clientName, message, customRequest } = req.body as {
+      clientName: string;
+      message: string;
+      customRequest?: boolean;
+    };
 
     const email = req.user?.email;
     if (!email) {

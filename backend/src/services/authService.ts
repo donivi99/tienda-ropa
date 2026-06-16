@@ -1,4 +1,29 @@
 import { getAdminAuth, getAdminDb } from '../config/firebase.js';
+import { isProtectedAdminEmail } from '../constants/admin.js';
+import { getCached, setCached } from '../utils/cache.js';
+
+const ORDERS_CACHE_TTL_MS = 60_000;
+
+export async function ensureUserProfile(uid: string, email: string) {
+  const existing = await getUserProfile(uid);
+  if (existing) return existing;
+
+  const defaultRole = isProtectedAdminEmail(email) ? 'admin' : 'user';
+  const db = getAdminDb();
+  const auth = getAdminAuth();
+
+  await db.collection('users').doc(uid).create({
+    uid,
+    email,
+    nombre: email.split('@')[0],
+    role: defaultRole,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+  await auth.setCustomUserClaims(uid, { role: defaultRole });
+
+  return getUserProfile(uid);
+}
 
 export async function registerUser(
   uid: string,
@@ -113,23 +138,43 @@ function sortOrdersByCreatedAtDesc(orders: Array<RawOrder & { id?: string }>) {
   });
 }
 
-export async function getAdminUsersWithStats() {
+export async function getAdminUsersWithStats(options?: { limit?: number; cursor?: string }) {
   const db = getAdminDb();
-  const [usersSnap, ordersSnap] = await Promise.all([
-    db.collection('users').get(),
-    db.collection('orders').get(),
-  ]);
+  const ordersByUser = await getOrdersByUserMap();
 
-  const ordersByUser = new Map<string, RawOrder[]>();
-  for (const doc of ordersSnap.docs) {
-    const data = doc.data() as RawOrder;
-    const uid = data.userId;
-    if (!uid) continue;
-    const list = ordersByUser.get(uid) ?? [];
-    list.push(data);
-    ordersByUser.set(uid, list);
+  if (!options?.limit && !options?.cursor) {
+    const usersSnap = await db.collection('users').get();
+    const users = usersSnap.docs.map((doc) => {
+      const user = doc.data() as Record<string, unknown> & { uid?: string; createdAt?: string };
+      const uid = (user.uid as string) || doc.id;
+      const userOrders = ordersByUser.get(uid) ?? [];
+      return {
+        ...user,
+        uid,
+        stats: computeUserOrderStats(userOrders),
+      };
+    });
+
+    users.sort((a, b) => {
+      const ta = new Date(a.createdAt || 0).getTime();
+      const tb = new Date(b.createdAt || 0).getTime();
+      return tb - ta;
+    });
+
+    return { users, nextCursor: null, hasMore: false };
   }
 
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+  let usersQuery: FirebaseFirestore.Query = db.collection('users').limit(limit);
+
+  if (options?.cursor) {
+    const cursorDoc = await db.collection('users').doc(options.cursor).get();
+    if (cursorDoc.exists) {
+      usersQuery = usersQuery.startAfter(cursorDoc);
+    }
+  }
+
+  const usersSnap = await usersQuery.get();
   const users = usersSnap.docs.map((doc) => {
     const user = doc.data() as Record<string, unknown> & { uid?: string; createdAt?: string };
     const uid = (user.uid as string) || doc.id;
@@ -141,13 +186,34 @@ export async function getAdminUsersWithStats() {
     };
   });
 
-  users.sort((a, b) => {
-    const ta = new Date(a.createdAt || 0).getTime();
-    const tb = new Date(b.createdAt || 0).getTime();
-    return tb - ta;
-  });
+  const lastDoc = usersSnap.docs[usersSnap.docs.length - 1];
 
-  return users;
+  return {
+    users,
+    nextCursor: usersSnap.docs.length === limit && lastDoc ? lastDoc.id : null,
+    hasMore: usersSnap.docs.length === limit,
+  };
+}
+
+async function getOrdersByUserMap(): Promise<Map<string, RawOrder[]>> {
+  const cached = getCached<Map<string, RawOrder[]>>('admin:orders-by-user');
+  if (cached) return cached;
+
+  const db = getAdminDb();
+  const ordersSnap = await db.collection('orders').get();
+  const ordersByUser = new Map<string, RawOrder[]>();
+
+  for (const doc of ordersSnap.docs) {
+    const data = doc.data() as RawOrder;
+    const uid = data.userId;
+    if (!uid) continue;
+    const list = ordersByUser.get(uid) ?? [];
+    list.push(data);
+    ordersByUser.set(uid, list);
+  }
+
+  setCached('admin:orders-by-user', ordersByUser, ORDERS_CACHE_TTL_MS);
+  return ordersByUser;
 }
 
 export async function getAdminUserDetail(uid: string) {

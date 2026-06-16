@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '../types';
+import { optimizeImageUrl } from '../config/cloudinary';
 import { getColorStyle } from '../utils/colorMap';
 import { hasActiveDiscount } from '../utils/productFilters';
 import ProductPrice, { DiscountBadge, ProductCardMeta } from './ProductPrice';
@@ -20,7 +21,9 @@ export default function ProductCard({ product }: Props) {
     >
       <div className="relative aspect-[3/4] shrink-0 overflow-hidden bg-[#1e1b18]">
         <img
-          src={product.images[0]}
+          src={optimizeImageUrl(product.images[0], 480)}
+          srcSet={`${optimizeImageUrl(product.images[0], 320)} 320w, ${optimizeImageUrl(product.images[0], 480)} 480w, ${optimizeImageUrl(product.images[0], 640)} 640w`}
+          sizes="(max-width: 640px) 50vw, 320px"
           alt={product.name}
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"

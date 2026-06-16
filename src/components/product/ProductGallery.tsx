@@ -1,4 +1,5 @@
 import { DiscountBadge } from '../ProductPrice';
+import { optimizeImageUrl } from '../../config/cloudinary';
 
 interface ProductGalleryProps {
   images: string[];
@@ -29,7 +30,9 @@ export default function ProductGallery({
     <div className="space-y-4">
       <div className="group relative aspect-[3/4] overflow-hidden rounded-[1.5rem] border border-[#2a2520] bg-[#1e1b18] shadow-[0_18px_50px_rgba(0,0,0,0.25)]">
         <img
-          src={images[currentIndex]}
+          src={optimizeImageUrl(images[currentIndex], 800)}
+          srcSet={`${optimizeImageUrl(images[currentIndex], 480)} 480w, ${optimizeImageUrl(images[currentIndex], 800)} 800w, ${optimizeImageUrl(images[currentIndex], 1200)} 1200w`}
+          sizes="(max-width: 1024px) 100vw, 50vw"
           alt={name}
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
         />

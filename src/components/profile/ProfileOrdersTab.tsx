@@ -125,7 +125,7 @@ export default function ProfileOrdersTab({
   return (
     <div className="space-y-6" role="tabpanel" id="panel-orders" aria-labelledby="tab-orders">
       <div>
-        <h1 className="text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+        <h1 className="font-heading text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider">
           Mis Pedidos
         </h1>
         <p className="text-[#a89a82] text-sm mt-1">Historial de tus compras</p>
@@ -149,7 +149,7 @@ export default function ProfileOrdersTab({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-[#f5e6c8] mb-2" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+            <h3 className="font-heading text-lg font-semibold text-[#f5e6c8] mb-2">
               Sin pedidos aún
             </h3>
             <p className="text-sm text-[#a89a82] max-w-sm mx-auto mb-6">
@@ -208,7 +208,7 @@ export default function ProfileOrdersTab({
             aria-labelledby="order-detail-title"
           >
             <div className="flex shrink-0 items-center justify-between border-b border-[#2a2520] px-6 py-4">
-              <h2 id="order-detail-title" className="text-lg font-bold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+              <h2 id="order-detail-title" className="font-heading text-lg font-bold text-[#f5e6c8]">
                 Detalle del pedido
               </h2>
               <button

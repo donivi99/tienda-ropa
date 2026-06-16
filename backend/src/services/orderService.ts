@@ -1,6 +1,9 @@
 import { getAdminDb } from '../config/firebase.js';
 import type { OrderInput } from '../types/index.js';
 import { SHIPPING_FEE } from '../types/index.js';
+import { getCached, setCached, invalidateCachePrefix } from '../utils/cache.js';
+
+const DASHBOARD_CACHE_TTL_MS = 90_000;
 
 export async function createOrder(
   userId: string,
@@ -58,6 +61,8 @@ export async function createOrder(
       updatedAt: new Date().toISOString(),
     });
   });
+
+  invalidateCachePrefix('admin:');
 
   return { id: orderRef.id, subtotal, shippingFee, total, status: 'pagado' };
 }
@@ -135,10 +140,31 @@ export async function cancelOrder(orderId: string, userId: string) {
   return result;
 }
 
-export async function getAllOrders() {
+export async function getAllOrders(options?: { limit?: number; cursor?: string }) {
   const db = getAdminDb();
-  const snapshot = await db.collection('orders').orderBy('createdAt', 'desc').get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const limit = Math.min(Math.max(options?.limit ?? 100, 1), 200);
+
+  let query: FirebaseFirestore.Query = db
+    .collection('orders')
+    .orderBy('createdAt', 'desc')
+    .limit(limit);
+
+  if (options?.cursor) {
+    const cursorDoc = await db.collection('orders').doc(options.cursor).get();
+    if (cursorDoc.exists) {
+      query = query.startAfter(cursorDoc);
+    }
+  }
+
+  const snapshot = await query.get();
+  const orders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+  return {
+    orders,
+    nextCursor: snapshot.docs.length === limit && lastDoc ? lastDoc.id : null,
+    hasMore: snapshot.docs.length === limit,
+  };
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {
@@ -153,10 +179,21 @@ export async function updateOrderStatus(orderId: string, status: string) {
     updatedAt: new Date().toISOString(),
   });
 
+  invalidateCachePrefix('admin:');
+
   return { id: orderId, status };
 }
 
 export async function getDashboardStats() {
+  const cached = getCached<Awaited<ReturnType<typeof computeDashboardStats>>>('admin:dashboard');
+  if (cached) return cached;
+
+  const stats = await computeDashboardStats();
+  setCached('admin:dashboard', stats, DASHBOARD_CACHE_TTL_MS);
+  return stats;
+}
+
+async function computeDashboardStats() {
   const db = getAdminDb();
 
   const [usersSnap, productsSnap, ordersSnap] = await Promise.all([

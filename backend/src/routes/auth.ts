@@ -1,23 +1,39 @@
 import { Router } from 'express';
-import { registerUser, getUserProfile, updateUserProfile, getAllUsers, setUserRole } from '../services/authService.js';
+import rateLimit from 'express-rate-limit';
+import {
+  registerUser,
+  getUserProfile,
+  updateUserProfile,
+  getAllUsers,
+  setUserRole,
+  ensureUserProfile,
+} from '../services/authService.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
-import { getAdminAuth, getAdminDb } from '../config/firebase.js';
-import { sanitizeAddress, validateProfileAddressFields } from '../utils/validation.js';
+import { getAdminDb, getAdminAuth } from '../config/firebase.js';
+import { sanitizeAddress } from '../utils/validation.js';
 import { isProtectedAdminEmail } from '../constants/admin.js';
+import {
+  validate,
+  validateCheckEmail,
+  validateRegister,
+  validateProfileUpdate,
+} from '../middleware/validate.js';
 import type { AuthRequest } from '../types/index.js';
 
 const router = Router();
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const checkEmailLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Demasiados intentos. Inténtalo más tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-router.post('/check-email', async (req, res) => {
+router.post('/check-email', checkEmailLimiter, validate(validateCheckEmail), async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
-      res.status(400).json({ error: 'Email válido requerido' });
-      return;
-    }
+    const { email } = req.body as { email: string };
     try {
       await getAdminAuth().getUserByEmail(email.trim());
       res.json({ exists: true });
@@ -42,25 +58,7 @@ router.post('/login', authMiddleware, async (req: AuthRequest, res) => {
       return;
     }
 
-    let profile = await getUserProfile(req.user!.uid);
-
-    if (!profile) {
-      const defaultRole = isProtectedAdminEmail(email) ? 'admin' : 'user';
-
-      const db = getAdminDb();
-      const auth = getAdminAuth();
-      await db.collection('users').doc(req.user!.uid).create({
-        uid: req.user!.uid,
-        email,
-        nombre: email.split('@')[0],
-        role: defaultRole,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      await auth.setCustomUserClaims(req.user!.uid, { role: defaultRole });
-      profile = await getUserProfile(req.user!.uid);
-    }
-
+    const profile = await ensureUserProfile(req.user!.uid, email);
     res.json(profile);
   } catch (err) {
     console.error('Error en login:', err);
@@ -68,17 +66,9 @@ router.post('/login', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
+router.post('/register', authMiddleware, validate(validateRegister), async (req: AuthRequest, res) => {
   try {
-    const { email, nombre } = req.body;
-    if (!email || typeof email !== 'string') {
-      res.status(400).json({ error: 'Email válido es requerido' });
-      return;
-    }
-    if (!nombre || typeof nombre !== 'string' || nombre.trim().length < 2 || nombre.length > 100) {
-      res.status(400).json({ error: 'Nombre inválido (2-100 caracteres)' });
-      return;
-    }
+    const { email, nombre } = req.body as { email: string; nombre: string };
     const role = isProtectedAdminEmail(email) ? 'admin' : 'user';
     const user = await registerUser(req.user!.uid, email, nombre.trim(), role);
     res.status(201).json(user);
@@ -102,35 +92,9 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/me', authMiddleware, async (req: AuthRequest, res) => {
+router.put('/me', authMiddleware, validate(validateProfileUpdate), async (req: AuthRequest, res) => {
   try {
     const { nombre, phone, address } = req.body;
-
-    if (nombre !== undefined) {
-      if (typeof nombre !== 'string' || nombre.trim().length < 2 || nombre.length > 100) {
-        res.status(400).json({ error: 'Nombre inválido (2-100 caracteres)' });
-        return;
-      }
-    }
-
-    if (phone !== undefined) {
-      if (typeof phone !== 'string' || phone.trim().length < 6 || phone.length > 20) {
-        res.status(400).json({ error: 'Teléfono inválido (6-20 caracteres)' });
-        return;
-      }
-    }
-
-    if (address !== undefined && address !== null) {
-      if (typeof address !== 'object') {
-        res.status(400).json({ error: 'Dirección inválida' });
-        return;
-      }
-      const addrErr = validateProfileAddressFields(address as Record<string, unknown>);
-      if (addrErr) {
-        res.status(400).json({ error: addrErr });
-        return;
-      }
-    }
 
     const profile = await updateUserProfile(req.user!.uid, {
       nombre: nombre !== undefined ? (nombre as string).trim() : undefined,

@@ -82,7 +82,7 @@ export default function OrderConfirmation() {
         </div>
 
         <p className="text-xs uppercase tracking-[0.3em] text-[#d4af37] mb-2">Pedido confirmado</p>
-        <h1 className="text-3xl md:text-4xl font-bold text-[#f5e6c8] mb-4" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+        <h1 className="font-heading text-3xl md:text-4xl font-bold text-[#f5e6c8] mb-4">
           Tu pedido está en camino
         </h1>
         <p className="text-[#a89a82] mb-8">

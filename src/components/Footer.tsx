@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="mx-auto max-w-[1600px] px-5 sm:px-8 lg:px-12 xl:px-16 2xl:px-20">
         <div className="grid gap-10 py-16 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
-            <Link to="/" className="inline-block text-lg font-bold text-[#d4af37] tracking-widest uppercase" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+            <Link to="/" className="font-heading inline-block text-lg font-bold text-[#d4af37] tracking-widest uppercase">
               tiendaRopa
             </Link>
             <p className="text-sm leading-6 text-[#a89a82]">

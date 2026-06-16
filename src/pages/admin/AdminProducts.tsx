@@ -78,7 +78,7 @@ export default function AdminProducts() {
 
   const fetchProducts = async () => {
     try {
-      const data = await api.get<Product[]>('/api/products');
+      const data = await api.get<Product[]>('/api/admin/products');
       setProducts(data);
     } catch (err) {
       console.error(err);
@@ -287,7 +287,7 @@ export default function AdminProducts() {
     <div className="mx-auto max-w-[1600px] px-5 py-12 sm:px-8 lg:px-12 xl:px-16 2xl:px-20">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <h1 className="font-heading text-3xl font-semibold text-[#f5e6c8]">
             Productos
           </h1>
           <p className="mt-1 text-sm text-[#a89a82]">

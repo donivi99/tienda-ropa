@@ -16,7 +16,7 @@ export async function authMiddleware(
   const token = header.split('Bearer ')[1];
 
   try {
-    const decoded = await getAdminAuth().verifyIdToken(token);
+    const decoded = await getAdminAuth().verifyIdToken(token, true);
     req.user = {
       uid: decoded.uid,
       email: decoded.email ?? null,

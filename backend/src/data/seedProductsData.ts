@@ -1,20 +1,17 @@
-import { useState } from 'react';
-import { collection, writeBatch, doc } from 'firebase/firestore';
-import { getFirebaseDb } from '../config/firebase';
-import type { Product } from '../types';
+import type { ProductInput } from '../types/index.js';
 
 function img(query: string, w = 400) {
   return `https://images.unsplash.com/${query}?w=${w}&fit=crop`;
 }
 
-function formatProductoId(seq: number): string {
-  return `TR-${String(seq).padStart(6, '0')}`;
-}
-
-function prepareProduct(product: Omit<Product, 'id' | 'productoId'>, index: number): Omit<Product, 'id'> {
-  const prepared: Omit<Product, 'id'> = {
+export function prepareSeedProduct(
+  product: Omit<ProductInput, 'productoId'>,
+  _index: number,
+  productoId: string
+): ProductInput & { productoId: string; isActive: boolean } {
+  const prepared: ProductInput & { productoId: string; isActive: boolean } = {
     ...product,
-    productoId: formatProductoId(index + 1),
+    productoId,
     isActive: true,
     colors: product.colors.map((c) => c.toLowerCase()),
   };
@@ -25,7 +22,7 @@ function prepareProduct(product: Omit<Product, 'id' | 'productoId'>, index: numb
   return prepared;
 }
 
-const PRODUCTS: Omit<Product, 'id' | 'productoId'>[] = [
+export const SEED_PRODUCTS: Omit<ProductInput, 'productoId'>[] = [
   // ═══════════════════════════════════════════════
   // CAMISETAS CORTAS HOMBRE FORMAL (10)
   // ═══════════════════════════════════════════════
@@ -285,94 +282,3 @@ const PRODUCTS: Omit<Product, 'id' | 'productoId'>[] = [
   { name: 'Short Cargo Niños', description: 'Cargo con bolsillos prácticos.', price: 18.99, category: 'pantalones-cortos', genero: 'niños', tipo: 'corto', images: [img('photo-1591195853828-11db59a44f6b')], sizes: ['4','6','8','10','12'], colors: ['verde oliva','beige','gris'], stock: { '4':6, '6':9, '8':11, '10':8, '12':6 } },
 ];
 
-export default function SeedPage() {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
-  const [count, setCount] = useState(0);
-  const [message, setMessage] = useState('');
-
-  const handleSeed = async () => {
-    setStatus('loading');
-    setMessage('Conectando con Firestore...');
-
-    try {
-      const db = getFirebaseDb();
-      const collectionRef = collection(db, 'products');
-
-      const BATCH_SIZE = 500;
-      for (let i = 0; i < PRODUCTS.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        const chunk = PRODUCTS.slice(i, i + BATCH_SIZE);
-
-        chunk.forEach((product, chunkIndex) => {
-          const ref = doc(collectionRef);
-          batch.set(ref, prepareProduct(product, i + chunkIndex));
-        });
-
-        setMessage(`Escribiendo lote ${Math.floor(i / BATCH_SIZE) + 1}...`);
-        await batch.commit();
-        setCount(Math.min(i + BATCH_SIZE, PRODUCTS.length));
-      }
-
-      setStatus('done');
-      setMessage(`${PRODUCTS.length} productos creados correctamente`);
-    } catch (err) {
-      setStatus('error');
-      setMessage(err instanceof Error ? err.message : 'Error al crear productos');
-    }
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold mb-2 text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>Seed de Productos</h1>
-      <p className="text-[#a89a82] mb-8">
-        Este script crea {PRODUCTS.length} productos en Firestore.
-      </p>
-
-      <div className="bg-[#141210] border border-[#2a2520] rounded-lg p-6 mb-6">
-        <h2 className="font-semibold mb-3 text-[#f5e6c8]">Contenido del catálogo:</h2>
-        <ul className="text-sm text-[#a89a82] space-y-1 ml-4 list-disc">
-          <li>Mujer y hombre: 4 categorías × 4 estilos (160 productos)</li>
-          <li>Tirantes: 12 productos (hombre, mujer y niños)</li>
-          <li>Niños: 12 productos (camisetas y pantalones)</li>
-          <li>Colores normalizados según <code className="text-[#d4af37]">colorMap.ts</code></li>
-          <li>Descuento 10% en productos Premium (nombre o descripción)</li>
-        </ul>
-      </div>
-
-      {status === 'idle' && (
-        <button
-          onClick={handleSeed}
-          className="w-full bg-[#d4af37] text-[#0a0a0a] py-3 rounded-lg font-bold hover:bg-[#b8962e] transition-colors uppercase tracking-wider"
-        >
-          Crear {PRODUCTS.length} productos en Firestore
-        </button>
-      )}
-
-      {status === 'loading' && (
-        <div className="space-y-3">
-          <div className="w-full bg-[#1e1b18] rounded-full h-3">
-            <div
-              className="bg-[#d4af37] h-3 rounded-full transition-all duration-300"
-              style={{ width: `${(count / PRODUCTS.length) * 100}%` }}
-            />
-          </div>
-          <p className="text-sm text-[#a89a82]">{message}</p>
-        </div>
-      )}
-
-      {status === 'done' && (
-        <div className="bg-[#141210] border border-[#d4af37] rounded-lg p-4 text-[#d4af37]">
-          <p className="font-medium">{message}</p>
-          <a href="/" className="text-sm underline mt-2 inline-block">Ir al catálogo</a>
-        </div>
-      )}
-
-      {status === 'error' && (
-        <div className="bg-red-900/30 border border-red-800 rounded-lg p-4 text-red-300">
-          <p className="font-medium">{message}</p>
-          <button onClick={handleSeed} className="text-sm underline mt-2">Reintentar</button>
-        </div>
-      )}
-    </div>
-  );
-}

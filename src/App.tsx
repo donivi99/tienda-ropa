@@ -12,7 +12,6 @@ import Checkout from './pages/Checkout';
 import OrderConfirmation from './pages/OrderConfirmation';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
-import SeedPage from './pages/Seed';
 import SobreNosotros from './pages/SobreNosotros';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/AdminProducts';
@@ -38,8 +37,6 @@ export default function App() {
               <Route path="/iniciar-sesion" element={<Login />} />
               <Route path="/sobre-nosotros" element={<SobreNosotros />} />
               <Route path="/mi-cuenta/*" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/cargar-productos" element={<SeedPage />} />
-
               <Route path="/administrador" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
               <Route path="/administrador/productos" element={<AdminRoute><AdminProducts /></AdminRoute>} />
               <Route path="/administrador/pedidos" element={<AdminRoute><AdminOrders /></AdminRoute>} />

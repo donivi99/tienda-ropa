@@ -38,7 +38,7 @@ export default function ProfileOverview({
   return (
     <div className="space-y-6" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
       <div>
-        <h1 className="text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+        <h1 className="font-heading text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider">
           Resumen
         </h1>
         <p className="text-[#a89a82] text-sm mt-1">
@@ -56,7 +56,7 @@ export default function ProfileOverview({
             </div>
             <span className="text-xs text-[#a89a82] uppercase tracking-wider">Pedidos</span>
           </div>
-          <p className="text-3xl font-bold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <p className="font-heading text-3xl font-bold text-[#f5e6c8]">
             {ordersLoading ? '…' : stats.orderCount}
           </p>
         </div>
@@ -70,7 +70,7 @@ export default function ProfileOverview({
             </div>
             <span className="text-xs text-[#a89a82] uppercase tracking-wider">Pendientes</span>
           </div>
-          <p className="text-3xl font-bold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <p className="font-heading text-3xl font-bold text-[#f5e6c8]">
             {ordersLoading ? '…' : stats.pendingOrders}
           </p>
         </div>
@@ -84,7 +84,7 @@ export default function ProfileOverview({
             </div>
             <span className="text-xs text-[#a89a82] uppercase tracking-wider">Gastado</span>
           </div>
-          <p className="text-3xl font-bold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <p className="font-heading text-3xl font-bold text-[#f5e6c8]">
             {ordersLoading ? '…' : formatEuro(stats.totalSpent)}
           </p>
         </div>
@@ -92,7 +92,7 @@ export default function ProfileOverview({
 
       {profile && (
         <div className="bg-[#141210] border border-[#2a2520] rounded-xl p-6">
-          <h3 className="text-sm font-semibold text-[#d4af37] uppercase tracking-wider mb-4" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <h3 className="font-heading text-sm font-semibold text-[#d4af37] uppercase tracking-wider mb-4">
             Datos Personales
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -129,7 +129,7 @@ export default function ProfileOverview({
       {recentOrders.length > 0 ? (
         <div className="bg-[#141210] border border-[#2a2520] rounded-xl p-6">
           <div className="flex items-center justify-between gap-4 mb-4">
-            <h3 className="text-sm font-semibold text-[#d4af37] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+            <h3 className="font-heading text-sm font-semibold text-[#d4af37] uppercase tracking-wider">
               Últimos pedidos
             </h3>
             <Link
@@ -168,7 +168,7 @@ export default function ProfileOverview({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-[#f5e6c8] mb-2" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+          <h3 className="font-heading text-lg font-semibold text-[#f5e6c8] mb-2">
             Aún no hay pedidos
           </h3>
           <p className="text-sm text-[#a89a82] max-w-sm mx-auto mb-6">

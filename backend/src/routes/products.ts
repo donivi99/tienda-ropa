@@ -7,10 +7,11 @@ import {
   deleteProduct,
   toggleProductActive,
   getProductsByUser,
+  getAllProductsAdmin,
 } from '../services/productService.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
-import { validate, validateProduct } from '../middleware/validate.js';
+import { validate, validateProduct, validateProductUpdate } from '../middleware/validate.js';
 import type { AuthRequest } from '../types/index.js';
 
 const router = Router();
@@ -22,9 +23,11 @@ router.get('/', async (req, res) => {
       genero: genero as string,
       tipo: tipo as string,
       category: category as string,
+      activeOnly: true,
     });
     res.json(products);
-  } catch {
+  } catch (err) {
+    console.error('Error al obtener productos:', err);
     res.status(500).json({ error: 'Error al obtener productos' });
   }
 });
@@ -33,7 +36,8 @@ router.get('/my-products', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const products = await getProductsByUser(req.user!.uid);
     res.json(products);
-  } catch {
+  } catch (err) {
+    console.error('Error al obtener productos del usuario:', err);
     res.status(500).json({ error: 'Error al obtener productos' });
   }
 });
@@ -46,7 +50,8 @@ router.get('/:id', async (req, res) => {
       return;
     }
     res.json(product);
-  } catch {
+  } catch (err) {
+    console.error('Error al obtener producto:', err);
     res.status(500).json({ error: 'Error al obtener producto' });
   }
 });
@@ -55,12 +60,13 @@ router.post('/', authMiddleware, adminMiddleware, validate(validateProduct), asy
   try {
     const product = await createProduct(req.body, req.user!.uid);
     res.status(201).json(product);
-  } catch {
+  } catch (err) {
+    console.error('Error al crear producto:', err);
     res.status(500).json({ error: 'Error al crear producto' });
   }
 });
 
-router.put('/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+router.put('/:id', authMiddleware, adminMiddleware, validate(validateProductUpdate), async (req: AuthRequest, res) => {
   try {
     const { productoId: _ignored, ...body } = req.body as Record<string, unknown> & {
       productoId?: string;
@@ -71,7 +77,8 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res
       return;
     }
     res.json(product);
-  } catch {
+  } catch (err) {
+    console.error('Error al actualizar producto:', err);
     res.status(500).json({ error: 'Error al actualizar producto' });
   }
 });
@@ -84,7 +91,8 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, 
       return;
     }
     res.json({ message: 'Producto eliminado' });
-  } catch {
+  } catch (err) {
+    console.error('Error al eliminar producto:', err);
     res.status(500).json({ error: 'Error al eliminar producto' });
   }
 });
@@ -97,7 +105,8 @@ router.put('/:id/active', authMiddleware, adminMiddleware, async (req: AuthReque
       return;
     }
     res.json(result);
-  } catch {
+  } catch (err) {
+    console.error('Error al cambiar estado:', err);
     res.status(500).json({ error: 'Error al cambiar estado' });
   }
 });

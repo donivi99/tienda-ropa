@@ -189,7 +189,7 @@ export default function Profile() {
                 element={
                   <div className="space-y-6" role="tabpanel" id="panel-contact" aria-labelledby="tab-contact">
                     <div>
-                      <h1 className="text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+                      <h1 className="font-heading text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider">
                         Contactar al Creador
                       </h1>
                       <p className="text-[#a89a82] text-sm mt-1">¿Tienes una idea personalizada? Escríbenos</p>

@@ -146,7 +146,7 @@ export default function Checkout() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold mb-6 text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>Checkout</h2>
+      <h2 className="font-heading text-2xl font-bold mb-6 text-[#f5e6c8] uppercase tracking-wider">Checkout</h2>
 
       <div className="space-y-3 mb-6">
         {items.map((item) => (

@@ -205,7 +205,7 @@ export default function CollectionPage({ category }: CollectionPageProps) {
               {pageMeta.eyebrow}
             </div>
             <div className="max-w-3xl space-y-4">
-              <h1 className="text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+              <h1 className="font-heading text-4xl font-semibold text-[#f5e6c8] sm:text-5xl lg:text-6xl">
                 {pageMeta.title}
               </h1>
               <p className="max-w-2xl text-base leading-7 text-[#a89a82] sm:text-lg">{pageMeta.description}</p>

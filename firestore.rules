@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Catálogo: lectura pública, escritura solo backend (Admin SDK)
+    match /products/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // Datos sensibles: solo backend (Admin SDK)
+    match /users/{uid} {
+      allow read, write: if false;
+    }
+    match /orders/{id} {
+      allow read, write: if false;
+    }
+    match /creator_messages/{id} {
+      allow read, write: if false;
+    }
+    match /counters/{id} {
+      allow read, write: if false;
+    }
+  }
+}

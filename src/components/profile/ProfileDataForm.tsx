@@ -66,7 +66,7 @@ export default function ProfileDataForm({ profile, onSaved }: ProfileDataFormPro
   return (
     <div className="space-y-6" role="tabpanel" id="panel-data" aria-labelledby="tab-data">
       <div>
-        <h1 className="text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+        <h1 className="font-heading text-2xl font-bold text-[#f5e6c8] uppercase tracking-wider">
           Mis Datos
         </h1>
         <p className="text-[#a89a82] text-sm mt-1">Información para tus envíos a domicilio</p>

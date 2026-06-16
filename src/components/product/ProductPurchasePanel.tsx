@@ -41,8 +41,7 @@ export default function ProductPurchasePanel({
       <div className="space-y-3">
         <ProductCardMeta genero={product.genero} tipo={product.tipo} category={product.category} />
         <h1
-          className="text-3xl font-bold leading-tight text-[#f5e6c8] md:text-4xl"
-          style={{ fontFamily: '"Bodoni Moda", serif' }}
+          className="font-heading text-3xl font-bold leading-tight text-[#f5e6c8] md:text-4xl"
         >
           {product.name}
         </h1>
@@ -88,7 +87,7 @@ export default function ProductPurchasePanel({
                 aria-label={`Color ${color}`}
                 aria-pressed={selected}
                 title={color}
-                className={`rounded-full p-0.5 transition-all ${
+                className={`rounded-full p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af37] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a] ${
                   selected
                     ? 'ring-2 ring-[#d4af37] ring-offset-2 ring-offset-[#0a0a0a]'
                     : 'ring-1 ring-[#2a2520] hover:ring-[#d4af37]/50'
@@ -121,7 +120,7 @@ export default function ProductPurchasePanel({
                 disabled={unavailable}
                 aria-label={unavailable ? `Talla ${size}, agotada` : `Talla ${size}`}
                 aria-pressed={selected}
-                className={`min-w-[3rem] rounded-xl border px-3 py-2.5 text-sm font-medium transition-all ${
+                className={`min-w-[3rem] rounded-xl border px-3 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4af37] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0a] ${
                   selected
                     ? 'border-[#d4af37] bg-[#d4af37] text-[#0a0a0a]'
                     : unavailable

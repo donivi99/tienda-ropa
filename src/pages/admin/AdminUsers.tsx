@@ -150,9 +150,26 @@ export default function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoadError('');
-      const data = await api.get<{ users: AdminUser[]; adminEmail: string }>('/api/admin/users');
-      setUsers(data.users);
-      setAdminEmail(data.adminEmail);
+      const allUsers: AdminUser[] = [];
+      let cursor: string | undefined;
+      let protectedAdminEmail = '';
+
+      do {
+        const query = new URLSearchParams({ limit: '100' });
+        if (cursor) query.set('cursor', cursor);
+        const data = await api.get<{
+          users: AdminUser[];
+          nextCursor: string | null;
+          hasMore: boolean;
+          adminEmail: string;
+        }>(`/api/admin/users?${query.toString()}`);
+        allUsers.push(...data.users);
+        protectedAdminEmail = data.adminEmail;
+        cursor = data.hasMore && data.nextCursor ? data.nextCursor : undefined;
+      } while (cursor);
+
+      setUsers(allUsers);
+      setAdminEmail(protectedAdminEmail);
     } catch (err) {
       console.error(err);
       setLoadError(err instanceof Error ? err.message : 'Error al cargar usuarios');
@@ -293,7 +310,7 @@ export default function AdminUsers() {
   return (
     <div className="mx-auto max-w-[1600px] px-5 py-12 sm:px-8 lg:px-12 xl:px-16 2xl:px-20">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-[#f5e6c8]" style={{ fontFamily: '"Bodoni Moda", serif' }}>
+        <h1 className="font-heading text-3xl font-semibold text-[#f5e6c8]">
           Usuarios
         </h1>
         <p className="mt-1 text-sm text-[#a89a82]">

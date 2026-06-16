@@ -72,6 +72,22 @@ npm run seed:admin
 
 - Usa las variables `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` y `ADMIN_SEED_NAME` del `backend/.env`.
 
+### 6. Sembrar productos (opcional)
+
+```bash
+npm run seed:products
+```
+
+Requiere `backend/serviceAccountKey.json` y escribe el catálogo vía Admin SDK (no desde el navegador).
+
+### 7. Desplegar reglas Firestore
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Las reglas están en `firestore.rules` (lectura pública de productos; escrituras solo backend).
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -80,6 +96,8 @@ npm run seed:admin
 | `npm run build` | Build de producción |
 | `npm start` | Arranca en producción (1 puerto) |
 | `npm run seed:admin` | Crea usuario administrador |
+| `npm run seed:products` | Sembra catálogo en Firestore (backend) |
+| `cd backend && npm test` | Tests de validación |
 | `npm run lint` | Verifica el código |
 
 ## Producción
