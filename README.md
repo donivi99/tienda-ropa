@@ -1,6 +1,6 @@
 # TiendaRopa - E-Commerce Full-Stack
 
-Tienda online de ropa con frontend React, backend Node.js/Express y Firebase.
+Tienda online de ropa: React (Vite) + Express + Firebase Auth + Firestore.
 
 ## Quick Start
 
@@ -25,15 +25,12 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 VITE_API_URL=http://localhost:3000
 ```
 
-**Backend** — descargar credenciales de Firebase Admin:
+**Backend** — ver [backend/README.md](./backend/README.md#configuración) para `serviceAccountKey.json` y `backend/.env`.
 
-1. Ir a Firebase Console → tu proyecto → **Project Settings** → **Service Accounts**
-2. Click **"Generate new private key"**
-3. Guardar el JSON descargado como `backend/serviceAccountKey.json`
-
-El archivo `.env` del backend solo necesita:
+Resumen del backend:
 
 ```bash
+# backend/.env
 PORT=3000
 CORS_ORIGIN=http://localhost:3001
 ADMIN_SEED_EMAIL=admin@tiendaropa.com
@@ -45,42 +42,25 @@ ADMIN_SEED_NAME=Administrador
 
 ### 3. Habilitar Email/Password en Firebase
 
-1. Ir a Firebase Console → tu proyecto → **Authentication**
-2. Click en pestaña **"Método de acceso"**
-3. Click **"Agregar método de acceso"**
-4. Selecciona **"Correo electrónico"**
-5. Activa la casilla **"Habilitar"**
-6. Click **Guardar**
+Firebase Console → Authentication → Método de acceso → Correo electrónico → Habilitar.
 
 ### 4. Arrancar el proyecto
-
-Desde la carpeta raíz del proyecto (`tienda-ropa/`):
 
 ```bash
 npm run dev
 ```
 
-Esto arranca frontend y backend a la vez. Abre **http://localhost:3001** en el navegador.
+- Frontend: **http://localhost:3001**
+- Backend API: **http://localhost:3000**
 
-### 5. Crear usuario admin (opcional)
-
-Desde la carpeta raíz del proyecto (`tienda-ropa/`):
-
-```bash
-npm run seed:admin
-```
-
-- Usa las variables `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` y `ADMIN_SEED_NAME` del `backend/.env`.
-
-### 6. Sembrar productos (opcional)
+### 5. Datos iniciales (opcional)
 
 ```bash
-npm run seed:products
+npm run seed:admin      # usuario administrador
+npm run seed:products   # catálogo (~280 productos)
 ```
 
-Requiere `backend/serviceAccountKey.json` y escribe el catálogo vía Admin SDK (no desde el navegador).
-
-### 7. Desplegar reglas Firestore
+### 6. Reglas Firestore
 
 ```bash
 firebase deploy --only firestore:rules
@@ -92,14 +72,16 @@ Las reglas están en `firestore.rules` (lectura pública de productos; escritura
 
 | Comando | Qué hace |
 |---------|----------|
-| `npm run dev` | Arranca frontend + backend |
-| `npm run build` | Build de producción |
-| `npm start` | Arranca en producción (1 puerto) |
-| `npm run seed:admin` | Crea usuario administrador |
-| `npm run seed:products` | Sembra catálogo en Firestore (backend) |
-| `npm run migrate:categories` | Normaliza categorías legacy en productos existentes |
-| `cd backend && npm test` | Tests de validación |
-| `npm run lint` | Verifica el código |
+| `npm run dev` | Frontend (3001) + backend (3000) |
+| `npm run build` | Build producción |
+| `npm start` | Servidor producción (API + static) |
+| `npm test` | Tests frontend + backend |
+| `npm run seed:admin` | Crear admin |
+| `npm run seed:products` | Sembrar catálogo |
+| `npm run migrate:categories` | Normalizar categorías legacy en Firestore |
+| `npm run lint` | ESLint |
+
+Scripts adicionales del backend: [backend/README.md](./backend/README.md#scripts-cli).
 
 ## Producción
 
@@ -108,61 +90,59 @@ npm run build
 npm start
 ```
 
-Todo corre en **http://localhost:3000** — Express sirve la API y el frontend.
-
-## Seguridad
-
-- No commits secretos ni claves de Firebase.
-- Mantén `serviceAccountKey.json` solo en local.
-- Cambia los datos del admin antes de publicar si el proyecto será público.
+Express sirve la API y el build de Vite en un solo puerto (3000 por defecto).
 
 ## Stack
 
-- **Frontend:** React + TypeScript + Tailwind CSS + Vite
-- **Backend:** Node.js + Express + TypeScript
-- **Auth:** Firebase Auth
-- **Base de datos:** Firestore
+| Parte | Tecnología |
+|-------|------------|
+| Frontend | React 19, TypeScript, Tailwind 4, Vite, React Router |
+| Backend | Node.js, Express, TypeScript — [detalle](./backend/README.md) |
+| Auth | Firebase Auth |
+| Datos | Firestore (catálogo también leído desde cliente con reglas estrictas) |
 
 ## Estructura
 
 ```
 tienda-ropa/
-├── src/                    # Frontend React
-│   ├── components/         # Navbar, Footer, ProductCard, etc.
-│   ├── pages/              # Home, Login, Checkout, Profile
-│   │   └── admin/          # Panel admin (Dashboard, Products, Orders, Users)
-│   ├── context/            # CartContext, AuthContext
-│   └── services/           # api.ts (cliente HTTP)
-├── backend/                # Backend Express
-│   └── src/
-│       ├── routes/         # auth, products, orders, admin
-│       ├── services/       # lógica de negocio
-│       ├── middleware/      # auth, admin, validate
-│       └── scripts/        # seedAdmin.ts
-├── package.json
+├── src/                 # Frontend React
+│   ├── components/
+│   ├── pages/           # Home, Checkout, Profile, admin/
+│   ├── context/         # Auth, Cart
+│   └── services/        # api.ts
+├── backend/             # API Express → ver backend/README.md
+├── shared/types/        # Tipos compartidos
+├── firestore.rules
+├── firebase.json
 └── README.md
 ```
 
-## API Endpoints
+## API (resumen)
 
-| Ruta | Métodos | Descripción |
-|------|---------|-------------|
-| `/api/auth` | POST, GET, PUT | Registro, perfil, roles |
-| `/api/products` | GET, POST, PUT, DELETE | CRUD productos |
-| `/api/orders` | GET, POST, PATCH | Pedidos |
-| `/api/admin` | GET, PATCH | Dashboard, gestión admin |
+| Prefijo | Uso |
+|---------|-----|
+| `/api/auth` | Login, registro, perfil |
+| `/api/products` | Catálogo (público activos; CRUD admin) |
+| `/api/orders` | Pedidos del usuario |
+| `/api/admin` | Dashboard, usuarios, pedidos, productos |
+| `/api/contact` | Mensajes de contacto |
+
+Documentación completa de endpoints, modelo de datos y middleware: **[backend/README.md](./backend/README.md)**.
 
 ## Roles
 
 | Acción | Usuario | Admin |
 |--------|---------|-------|
-| Ver productos | ✅ | ✅ |
-| Comprar | ✅ | ✅ |
+| Ver y comprar | ✅ | ✅ |
 | CRUD productos | ❌ | ✅ |
-| Gestionar pedidos | ❌ | ✅ |
-| Gestionar usuarios | ❌ | ✅ |
+| Gestionar pedidos / usuarios | ❌ | ✅ |
 
 ## Diseño
 
-- **Paleta:** Negro (#0a0a0a), dorado (#d4af37), crema (#f5e6c8), beige (#a89a82)
-- **Tipografía:** Fraunces (headings y body)
+- **Paleta:** negro `#0a0a0a`, dorado `#d4af37`, crema `#f5e6c8`
+- **Tipografía:** Fraunces
+
+## Documentación adicional
+
+- [backend/README.md](./backend/README.md) — API, Firestore, scripts, seguridad
+- [AGENTS.md](./AGENTS.md) — guía para agentes de IA en este repo
