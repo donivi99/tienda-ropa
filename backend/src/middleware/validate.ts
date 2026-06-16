@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { isAllowedHttpsUrl, validateShippingAddressFields, validateProfileAddressFields } from '../utils/validation.js';
+import { normalizeProductCategory } from '../utils/productCategory.js';
 
 type Validator = (body: Record<string, unknown>) => string | null;
 
@@ -27,6 +28,8 @@ function validateProductFields(body: Record<string, unknown>, partial: boolean):
   }
   if (!partial || body.category !== undefined) {
     if (!body.category || typeof body.category !== 'string') return 'Categoría requerida';
+    const normalized = normalizeProductCategory(body.category);
+    if (normalized !== 'camisetas' && normalized !== 'pantalones') return 'Categoría inválida';
   }
   if (!partial || body.genero !== undefined) {
     if (!body.genero || !['mujer', 'hombre', 'niños'].includes(body.genero as string)) return 'Género inválido';

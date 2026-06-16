@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { collection, getDocs, limit, query, startAfter, where, type QueryDocumentSnapshot } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { Product } from '../types';
 import { productMatchesColorFilters } from '../utils/colorMap';
 import { getProductSalePrice, hasActiveDiscount, isProductActive, productMatchesPrenda } from '../utils/productFilters';
 import { getFirebaseDb } from '../config/firebase';
 import ProductGrid from './ProductGrid';
 import FilterSidebar, { type Filters } from './FilterSidebar';
-
-const PAGE_SIZE = 50;
 
 const DEFAULT_FILTERS: Filters = {
   prenda: [],
@@ -54,8 +52,6 @@ export default function CollectionPage({ category }: CollectionPageProps) {
   const pageMeta = getPageMeta(category);
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
-  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -70,17 +66,15 @@ export default function CollectionPage({ category }: CollectionPageProps) {
 
       try {
         const db = getFirebaseDb();
-        const q = query(collection(db, 'products'), where('genero', '==', category), limit(PAGE_SIZE));
+        const q = query(collection(db, 'products'), where('genero', '==', category));
         const snapshot = await getDocs(q);
         if (cancelled) return;
 
-        const newProducts = snapshot.docs
+        const products = snapshot.docs
           .map((doc) => ({ id: doc.id, ...doc.data() }) as Product)
           .filter(isProductActive);
 
-        setAllProducts(newProducts);
-        setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-        setHasMore(snapshot.docs.length === PAGE_SIZE);
+        setAllProducts(products);
         setFilters(DEFAULT_FILTERS);
       } catch (err) {
         if (!cancelled) {
@@ -98,37 +92,6 @@ export default function CollectionPage({ category }: CollectionPageProps) {
       cancelled = true;
     };
   }, [category]);
-
-  const loadMoreProducts = useCallback(async () => {
-    if (!lastDoc) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const db = getFirebaseDb();
-      const q = query(
-        collection(db, 'products'),
-        where('genero', '==', category),
-        limit(PAGE_SIZE),
-        startAfter(lastDoc)
-      );
-
-      const snapshot = await getDocs(q);
-      const newProducts = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }) as Product)
-        .filter(isProductActive);
-
-      setAllProducts((prev) => [...prev, ...newProducts]);
-      setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
-      setHasMore(snapshot.docs.length === PAGE_SIZE);
-    } catch (err) {
-      setError('Error al cargar productos');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [category, lastDoc]);
 
   const priceStats = useMemo(() => {
     if (allProducts.length === 0) return { min: 0, max: 100 };
@@ -235,62 +198,58 @@ export default function CollectionPage({ category }: CollectionPageProps) {
               </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.22em] text-[#a89a82]">
-            <span className="rounded-full border border-[#2a2520] bg-[#141210] px-3 py-2">Precio desde {priceStats.min}€</span>
-            <span className="rounded-full border border-[#2a2520] bg-[#141210] px-3 py-2">Hasta {priceStats.max}€</span>
-          </div>
+          {!loading && allProducts.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.22em] text-[#a89a82]">
+              <span className="rounded-full border border-[#2a2520] bg-[#141210] px-3 py-2">Precio desde {priceStats.min}€</span>
+              <span className="rounded-full border border-[#2a2520] bg-[#141210] px-3 py-2">Hasta {priceStats.max}€</span>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-10 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[390px_minmax(0,1fr)] lg:items-start 2xl:gap-12">
           {/* Desktop sidebar */}
           <div className="hidden lg:block">
-            <FilterSidebar
-              products={allProducts}
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onReset={handleResetFilters}
-              activeFiltersCount={activeFiltersCount}
-            />
+            {!loading && (
+              <FilterSidebar
+                products={allProducts}
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                onReset={handleResetFilters}
+                activeFiltersCount={activeFiltersCount}
+              />
+            )}
           </div>
 
           <div className="space-y-8">
-            <ProductGrid products={filteredProducts} />
-
-            {loading && (
-              <div className="py-10 text-center">
+            {loading ? (
+              <div className="py-20 text-center">
                 <div className="inline-block h-9 w-9 animate-spin rounded-full border-4 border-[#2a2520] border-t-[#d4af37]" />
+                <p className="mt-4 text-sm text-[#a89a82]">Cargando colección…</p>
               </div>
-            )}
-
-            {hasMore && !loading && (
-              <div className="text-center">
-                <button
-                  onClick={() => loadMoreProducts()}
-                  className="rounded-full border border-[#2a2520] bg-[#141210] px-7 py-3 text-xs font-semibold uppercase tracking-[0.26em] text-[#f5e6c8] transition-all hover:border-[#d4af37] hover:text-[#d4af37]"
-                >
-                  Cargar más
-                </button>
-              </div>
+            ) : (
+              <ProductGrid products={filteredProducts} />
             )}
           </div>
         </div>
       </div>
 
       {/* Mobile floating filter button */}
-      <button
-        onClick={() => setMobileFiltersOpen(true)}
-        className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 lg:hidden flex items-center gap-2 rounded-full border border-[#d4af37]/40 bg-[#141210]/95 px-6 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#d4af37] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all hover:bg-[#1a1714] hover:shadow-[0_8px_40px_rgba(212,175,55,0.15)]"
-      >
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-        </svg>
-        Filtros
-        {activeFiltersCount > 0 && (
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#d4af37] text-[0.6rem] font-bold text-[#0a0a0a]">
-            {activeFiltersCount}
-          </span>
-        )}
-      </button>
+      {!loading && (
+        <button
+          onClick={() => setMobileFiltersOpen(true)}
+          className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 lg:hidden flex items-center gap-2 rounded-full border border-[#d4af37]/40 bg-[#141210]/95 px-6 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#d4af37] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all hover:bg-[#1a1714] hover:shadow-[0_8px_40px_rgba(212,175,55,0.15)]"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          Filtros
+          {activeFiltersCount > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#d4af37] text-[0.6rem] font-bold text-[#0a0a0a]">
+              {activeFiltersCount}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Mobile bottom sheet overlay */}
       {mobileFiltersOpen && (

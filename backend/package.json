@@ -10,7 +10,8 @@
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
     "seed:products": "tsx src/scripts/seedProducts.ts",
     "test": "tsx --test src/utils/validation.test.ts",
-    "migrate:producto-ids": "tsx src/scripts/migrateProductoIds.ts"
+    "migrate:producto-ids": "tsx src/scripts/migrateProductoIds.ts",
+    "migrate:categories": "tsx src/scripts/migrateCategories.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -47,7 +47,9 @@ export default function CartDrawer({ open, onClose }: Props) {
                     <span className="text-sm text-[#f5e6c8]">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.productId, item.selectedSize, item.selectedColor, item.quantity + 1)}
-                      className="w-6 h-6 border border-[#2a2520] rounded text-sm flex items-center justify-center text-[#f5e6c8] hover:border-[#d4af37] transition-colors"
+                      disabled={item.quantity >= item.maxStock}
+                      aria-label="Aumentar cantidad"
+                      className="w-6 h-6 border border-[#2a2520] rounded text-sm flex items-center justify-center text-[#f5e6c8] hover:border-[#d4af37] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       +
                     </button>

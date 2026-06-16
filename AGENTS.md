@@ -30,4 +30,4 @@ Usa el rol adecuado según la tarea:
 - Nunca commitear `.env`, `backend/.env` ni `serviceAccountKey.json`
 - Variables frontend: `import.meta.env.VITE_*`
 - Paleta: negro `#0a0a0a`, dorado `#d4af37`, crema `#f5e6c8`
-- Tipografía: Bodoni Moda (headings), Merriweather (body)
+- Tipografía: Fraunces (headings y body)

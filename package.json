@@ -13,7 +13,8 @@
     "test": "tsx --test src/utils/shippingAddress.test.ts && cd backend && npm test",
     "preview": "vite preview",
     "seed:admin": "cd backend && npm run seed:admin",
-    "seed:products": "cd backend && npm run seed:products"
+    "seed:products": "cd backend && npm run seed:products",
+    "migrate:categories": "cd backend && npm run migrate:categories"
   },
   "dependencies": {
     "firebase": "^12.14.0",

@@ -97,6 +97,7 @@ Las reglas están en `firestore.rules` (lectura pública de productos; escritura
 | `npm start` | Arranca en producción (1 puerto) |
 | `npm run seed:admin` | Crea usuario administrador |
 | `npm run seed:products` | Sembra catálogo en Firestore (backend) |
+| `npm run migrate:categories` | Normaliza categorías legacy en productos existentes |
 | `cd backend && npm test` | Tests de validación |
 | `npm run lint` | Verifica el código |
 
@@ -164,4 +165,4 @@ tienda-ropa/
 ## Diseño
 
 - **Paleta:** Negro (#0a0a0a), dorado (#d4af37), crema (#f5e6c8), beige (#a89a82)
-- **Tipografía:** Bodoni Moda (headings), Merriweather (body)
+- **Tipografía:** Fraunces (headings y body)

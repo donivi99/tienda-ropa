@@ -55,11 +55,12 @@ function ProductJsonLd({ product }: { product: Product }) {
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
+  const [quantity, setQuantity] = useState(1);
   const [currentImage, setCurrentImage] = useState(0);
   const [added, setAdded] = useState(false);
   const [error, setError] = useState('');
@@ -70,6 +71,7 @@ export default function ProductDetail() {
     setError('');
     setSelectedSize('');
     setSelectedColor('');
+    setQuantity(1);
     setCurrentImage(0);
 
     getDoc(doc(getFirebaseDb(), 'products', id))
@@ -94,8 +96,46 @@ export default function ProductDetail() {
   );
 
   const stockForSize = product && selectedSize ? product.stock[selectedSize] ?? 0 : 0;
-  const canAdd = !!(product && selectedSize && selectedColor && stockForSize > 0);
+
+  const inCartQuantity = useMemo(() => {
+    if (!product || !selectedSize || !selectedColor) return 0;
+    return (
+      items.find(
+        (item) =>
+          item.productId === product.id &&
+          item.selectedSize === selectedSize &&
+          item.selectedColor === selectedColor,
+      )?.quantity ?? 0
+    );
+  }, [items, product, selectedSize, selectedColor]);
+
+  const maxQuantity = Math.max(0, stockForSize - inCartQuantity);
+
+  useEffect(() => {
+    if (maxQuantity <= 0) {
+      setQuantity(1);
+      return;
+    }
+    setQuantity((current) => Math.min(Math.max(1, current), maxQuantity));
+  }, [maxQuantity, selectedSize, selectedColor]);
+
+  const canAdd = !!(product && selectedSize && selectedColor && maxQuantity > 0);
   const ctaHint = getCtaHint(selectedColor, selectedSize, stockForSize);
+
+  const handleSizeChange = (size: string) => {
+    setSelectedSize(size);
+    setQuantity(1);
+  };
+
+  const handleColorChange = (color: string) => {
+    setSelectedColor(color);
+    setQuantity(1);
+  };
+
+  const handleQuantityChange = (next: number) => {
+    if (maxQuantity <= 0) return;
+    setQuantity(Math.min(Math.max(1, next), maxQuantity));
+  };
 
   const handleAdd = () => {
     if (!product || !canAdd) return;
@@ -106,6 +146,8 @@ export default function ProductDetail() {
       selectedSize,
       selectedColor,
       price: getEffectivePrice(product.price, product.discountPercent),
+      quantity,
+      maxStock: stockForSize,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -158,11 +200,14 @@ export default function ProductDetail() {
             selectedColor={selectedColor}
             stockForSize={stockForSize}
             totalStock={totalStock}
+            quantity={quantity}
+            maxQuantity={maxQuantity}
             canAdd={canAdd}
             added={added}
             ctaHint={ctaHint}
-            onSizeChange={setSelectedSize}
-            onColorChange={setSelectedColor}
+            onSizeChange={handleSizeChange}
+            onColorChange={handleColorChange}
+            onQuantityChange={handleQuantityChange}
             onAdd={handleAdd}
           />
         </div>

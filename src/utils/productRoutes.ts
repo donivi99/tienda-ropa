@@ -1,4 +1,5 @@
 import type { Product } from '../types';
+import { formatProductCategoryLabel } from './productFilters';
 
 const GENERO_PATH: Record<Product['genero'], string> = {
   mujer: '/categoria-mujer',
@@ -21,5 +22,5 @@ export function getGeneroLabel(genero: Product['genero']): string {
 }
 
 export function formatCategoryLabel(category: string): string {
-  return category.replace(/-/g, ' ');
+  return formatProductCategoryLabel(category);
 }

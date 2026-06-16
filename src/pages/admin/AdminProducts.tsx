@@ -3,21 +3,17 @@ import { AdminSelect } from '../../components/admin/AdminSelect';
 import { api } from '../../services/api';
 import type { Product } from '../../types';
 import { MAIN_COLORS, productMatchesColorFilters } from '../../utils/colorMap';
-import { isProductActive } from '../../utils/productFilters';
+import { isProductActive, productMatchesCategoryFilter, normalizeProductCategory, formatProductCategoryLabel } from '../../utils/productFilters';
 
 const CATEGORY_OPTIONS = [
   { value: '', label: 'Todas las categorías' },
-  { value: 'camisetas-cortas', label: 'Camisetas Cortas' },
-  { value: 'camisetas-largas', label: 'Camisetas Largas' },
-  { value: 'pantalones-cortos', label: 'Pantalones Cortos' },
-  { value: 'pantalones-largos', label: 'Pantalones Largos' },
+  { value: 'camisetas', label: 'Camisetas' },
+  { value: 'pantalones', label: 'Pantalones' },
 ] as const;
 
 const FORM_CATEGORY_OPTIONS = [
-  { value: 'camisetas-cortas', label: 'Camisetas Cortas' },
-  { value: 'camisetas-largas', label: 'Camisetas Largas' },
-  { value: 'pantalones-cortos', label: 'Pantalones Cortos' },
-  { value: 'pantalones-largos', label: 'Pantalones Largos' },
+  { value: 'camisetas', label: 'Camisetas' },
+  { value: 'pantalones', label: 'Pantalones' },
 ];
 
 const GENERO_OPTIONS = [
@@ -67,7 +63,7 @@ export default function AdminProducts() {
     description: '',
     price: 0,
     discountPercent: 0,
-    category: 'camisetas-cortas',
+    category: 'camisetas',
     genero: 'hombre' as 'mujer' | 'hombre' | 'niños',
     tipo: 'corto' as 'corto' | 'largo' | 'tirantes',
     images: [''],
@@ -123,7 +119,7 @@ export default function AdminProducts() {
       description: product.description,
       price: product.price,
       discountPercent: product.discountPercent || 0,
-      category: product.category,
+      category: normalizeProductCategory(product.category) as 'camisetas' | 'pantalones',
       genero: product.genero,
       tipo: product.tipo,
       images: product.images.length > 0 ? product.images : [''],
@@ -159,7 +155,7 @@ export default function AdminProducts() {
       description: '',
       price: 0,
       discountPercent: 0,
-      category: 'camisetas-cortas',
+      category: 'camisetas',
       genero: 'hombre',
       tipo: 'corto',
       images: [''],
@@ -218,7 +214,7 @@ export default function AdminProducts() {
         const inDesc = p.description.toLowerCase().includes(q);
         if (!inName && !inDesc) return false;
       }
-      if (filterCategory && p.category !== filterCategory) return false;
+      if (filterCategory && !productMatchesCategoryFilter(p.category, filterCategory)) return false;
       if (filterGenero && p.genero !== filterGenero) return false;
       if (filterTipo && p.tipo !== filterTipo) return false;
       if (filterSize && !p.sizes?.includes(filterSize)) return false;
@@ -706,7 +702,7 @@ export default function AdminProducts() {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-[#a89a82]">{product.category}</td>
+                <td className="px-4 py-3 text-[#a89a82]">{formatProductCategoryLabel(product.category)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     {product.discountPercent ? (

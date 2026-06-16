@@ -9,11 +9,14 @@ interface ProductPurchasePanelProps {
   selectedColor: string;
   stockForSize: number;
   totalStock: number;
+  quantity: number;
+  maxQuantity: number;
   canAdd: boolean;
   added: boolean;
   ctaHint: string;
   onSizeChange: (size: string) => void;
   onColorChange: (color: string) => void;
+  onQuantityChange: (quantity: number) => void;
   onAdd: () => void;
   showDescription?: boolean;
   compact?: boolean;
@@ -25,11 +28,14 @@ export default function ProductPurchasePanel({
   selectedColor,
   stockForSize,
   totalStock,
+  quantity,
+  maxQuantity,
   canAdd,
   added,
   ctaHint,
   onSizeChange,
   onColorChange,
+  onQuantityChange,
   onAdd,
   showDescription = true,
   compact = false,
@@ -151,6 +157,44 @@ export default function ProductPurchasePanel({
           </p>
         )}
       </fieldset>
+
+      {selectedSize && selectedColor && maxQuantity > 0 && (
+        <fieldset className="border-t border-[#2a2520] pt-6">
+          <legend className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#f5e6c8]">
+            Cantidad
+          </legend>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onQuantityChange(quantity - 1)}
+              disabled={quantity <= 1}
+              aria-label="Reducir cantidad"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2a2520] text-lg text-[#f5e6c8] transition-colors hover:border-[#d4af37] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              −
+            </button>
+            <span
+              className="min-w-[2.5rem] text-center text-lg font-semibold text-[#f5e6c8]"
+              aria-live="polite"
+              aria-label={`Cantidad: ${quantity}`}
+            >
+              {quantity}
+            </span>
+            <button
+              type="button"
+              onClick={() => onQuantityChange(quantity + 1)}
+              disabled={quantity >= maxQuantity}
+              aria-label="Aumentar cantidad"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#2a2520] text-lg text-[#f5e6c8] transition-colors hover:border-[#d4af37] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              +
+            </button>
+            <span className="text-xs text-[#a89a82]">
+              Máx. {maxQuantity}
+            </span>
+          </div>
+        </fieldset>
+      )}
 
       <div className={compact ? '' : 'hidden lg:block'}>
         <AddToCartButton canAdd={canAdd} added={added} ctaHint={ctaHint} onAdd={onAdd} />

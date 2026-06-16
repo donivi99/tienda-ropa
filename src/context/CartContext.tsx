@@ -32,10 +32,14 @@ interface CartContextType {
   clearCart: () => void;
 }
 
+function clampToMaxStock(quantity: number, maxStock: number): number {
+  return Math.max(1, Math.min(quantity, maxStock));
+}
+
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case 'ADD_ITEM': {
-      const { quantity = 1, ...newItem } = action.payload;
+      const { quantity = 1, maxStock, ...newItem } = action.payload;
       const existingIndex = state.items.findIndex(
         (item) =>
           item.productId === newItem.productId &&
@@ -45,14 +49,18 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 
       if (existingIndex >= 0) {
         const updated = [...state.items];
+        const existing = updated[existingIndex];
+        const cap = existing.maxStock ?? maxStock;
         updated[existingIndex] = {
-          ...updated[existingIndex],
-          quantity: updated[existingIndex].quantity + quantity,
+          ...existing,
+          maxStock: cap,
+          quantity: Math.min(existing.quantity + quantity, cap),
         };
         return { ...state, items: updated };
       }
 
-      return { ...state, items: [...state.items, { ...newItem, quantity }] };
+      const initialQty = clampToMaxStock(quantity, maxStock);
+      return { ...state, items: [...state.items, { ...newItem, maxStock, quantity: initialQty }] };
     }
 
     case 'REMOVE_ITEM':
@@ -90,7 +98,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
           item.productId === coords.productId &&
           item.selectedSize === coords.selectedSize &&
           item.selectedColor === coords.selectedColor
-            ? { ...item, quantity }
+            ? { ...item, quantity: Math.min(quantity, item.maxStock) }
             : item
         ),
       };

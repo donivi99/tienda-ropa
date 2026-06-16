@@ -17,7 +17,7 @@ describe('validateProduct', () => {
     const err = validateProduct({
       name: 'Test',
       price: 19.99,
-      category: 'camisetas-cortas',
+      category: 'camisetas',
       genero: 'mujer',
       tipo: 'corto',
       images: ['https://example.com/p.jpg'],

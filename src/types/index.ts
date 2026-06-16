@@ -25,6 +25,8 @@ export interface CartItem {
   selectedColor: string;
   quantity: number;
   price: number;
+  /** Stock máximo para esta talla al añadir al carrito */
+  maxStock: number;
 }
 
 export interface ShippingAddress {

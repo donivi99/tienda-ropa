@@ -1,4 +1,5 @@
 import { getEffectivePrice } from '../utils/colorMap';
+import { formatProductCategoryLabel } from '../utils/productFilters';
 
 interface ProductPriceProps {
   price: number;
@@ -86,7 +87,7 @@ export default function ProductPrice({
 }
 
 function formatCategoryLabel(category: string) {
-  return category.replace(/-/g, ' ');
+  return formatProductCategoryLabel(category);
 }
 
 export function ProductCardMeta({

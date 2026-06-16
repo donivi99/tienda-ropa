@@ -6,5 +6,5 @@ description: Diseña y mejora UI de TiendaRopa con Tailwind 4, paleta dorado/neg
 # Frontend Design — TiendaRopa
 
 Paleta: `#0a0a0a`, `#d4af37`, `#f5e6c8`, `#a89a82`
-Fonts: Bodoni Moda (headings), Merriweather (body)
+Fonts: Fraunces (headings y body)
 Estilo: elegante, moda, alto contraste, grids responsivos de productos
