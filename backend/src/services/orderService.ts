@@ -2,14 +2,14 @@ import { getAdminDb } from '../config/firebase.js';
 import type { OrderInput, OrderStatus } from '../types/index.js';
 import { SHIPPING_FEE } from '../types/index.js';
 import { getCached, setCached, invalidateCachePrefix } from '../utils/cache.js';
-import { resolveOrderItems } from '../utils/orderItems.js';
+import { resolveOrderItems, syncOrderItemsWithStock } from '../utils/orderItems.js';
 import { StockInsufficientError } from '../utils/stripePayment.js';
 import {
   getAdminAllowedStatuses,
   isAdminCancelWithStockRestore,
   isAdminOrderTransitionAllowed,
 } from '../utils/adminOrderTransitions.js';
-import type { RefundPendingReason } from '../types/index.js';
+import type { RefundPendingReason, OrderItem, StockAdjustment } from '../types/index.js';
 
 const DASHBOARD_CACHE_TTL_MS = 90_000;
 
@@ -34,6 +34,7 @@ export async function createOrder(
     userEmail,
     userName,
     items,
+    itemsAtCreation: items.map((item) => ({ ...item })),
     subtotal,
     shippingFee,
     total,
@@ -50,6 +51,123 @@ export async function createOrder(
   invalidateCachePrefix('admin:');
 
   return { id: orderRef.id, subtotal, shippingFee, total, status: 'pendiente_pago' as const };
+}
+
+function orderItemsChanged(previous: OrderItem[], next: OrderItem[]): boolean {
+  if (previous.length !== next.length) return true;
+
+  return previous.some((item, index) => {
+    const updated = next[index];
+    return (
+      item.productId !== updated.productId ||
+      item.selectedSize !== updated.selectedSize ||
+      item.selectedColor !== updated.selectedColor ||
+      item.quantity !== updated.quantity ||
+      item.price !== updated.price
+    );
+  });
+}
+
+/** Sincroniza stock/precios de un pedido pendiente antes de reanudar el pago. */
+export async function preparePendingOrderPayment(orderId: string, userId: string) {
+  const db = getAdminDb();
+  const orderRef = db.collection('orders').doc(orderId);
+  const snap = await orderRef.get();
+
+  if (!snap.exists) {
+    throw new Error('Pedido no encontrado');
+  }
+
+  const data = snap.data();
+  if (!data || data.userId !== userId) {
+    throw new Error('Pedido no encontrado');
+  }
+
+  if (data.status !== 'pendiente_pago') {
+    throw new Error('El pedido no está pendiente de pago');
+  }
+
+  const currentItems = (data.items ?? []) as OrderItem[];
+  const storedBaseline = (data.itemsAtCreation ?? []) as OrderItem[];
+  let baselineItems = storedBaseline.length > 0 ? storedBaseline : currentItems;
+
+  if (storedBaseline.length === 0 && currentItems.length > 0) {
+    await orderRef.update({
+      itemsAtCreation: currentItems.map((item) => ({ ...item })),
+      updatedAt: new Date().toISOString(),
+    });
+    baselineItems = currentItems;
+  }
+
+  if (baselineItems.length === 0) {
+    throw new Error('El pedido no tiene productos');
+  }
+
+  const { items, adjustments } = await syncOrderItemsWithStock(baselineItems);
+  const requestedTotal = baselineItems.reduce((sum, item) => sum + item.quantity, 0);
+  const appliedTotal = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  if (items.length === 0) {
+    throw new Error(
+      'Ya no hay stock disponible para completar este pedido. Puedes cancelarlo desde Mis pedidos.',
+    );
+  }
+
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingFee = items.length > 0 ? SHIPPING_FEE : 0;
+  const total = Math.round((subtotal + shippingFee) * 100) / 100;
+
+  const previousTotal = typeof data.total === 'number' ? data.total : 0;
+  const previousPaymentIntentId =
+    typeof data.stripePaymentIntentId === 'string' ? data.stripePaymentIntentId : null;
+  const itemsChanged = orderItemsChanged(currentItems, items);
+  const totalChanged = previousTotal !== total;
+  const updatedAt = new Date().toISOString();
+
+  if (itemsChanged || totalChanged) {
+    const updatePayload: Record<string, unknown> = {
+      items,
+      subtotal,
+      shippingFee,
+      total,
+      updatedAt,
+    };
+
+    if (totalChanged && previousPaymentIntentId) {
+      updatePayload.stripePaymentIntentId = null;
+    }
+
+    await orderRef.update(updatePayload);
+    invalidateCachePrefix('admin:');
+  }
+
+  return {
+    order: {
+      id: orderId,
+      userId: data.userId,
+      userEmail: data.userEmail,
+      userName: data.userName,
+      items,
+      subtotal,
+      shippingFee,
+      total,
+      status: 'pendiente_pago' as const,
+      shippingAddress: data.shippingAddress,
+      deliveryMethod: data.deliveryMethod,
+      paymentMethod: data.paymentMethod ?? null,
+      stripePaymentIntentId: totalChanged ? null : (previousPaymentIntentId ?? null),
+      paidAt: data.paidAt ?? null,
+      createdAt: data.createdAt,
+      updatedAt,
+    },
+    adjustments: adjustments as StockAdjustment[],
+    quantitySummary: {
+      requestedTotal,
+      appliedTotal,
+    },
+    totalChanged,
+    previousPaymentIntentId: totalChanged ? previousPaymentIntentId : null,
+  };
 }
 
 /** Marca el pedido como pagado y descuenta stock (idempotente). */

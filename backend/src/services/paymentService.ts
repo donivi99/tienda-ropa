@@ -6,6 +6,7 @@ import {
   markOrderPaymentFailed,
   markOrderRefunded,
   markOrderRefundPending,
+  preparePendingOrderPayment,
   setOrderPaymentIntentId,
 } from './orderService.js';
 import { eurosToStripeCents } from '../utils/pricing.js';
@@ -143,6 +144,19 @@ export async function releaseStripePaymentForOrder(
   }
 }
 
+async function cancelReusablePaymentIntentIfNeeded(paymentIntentId: string): Promise<void> {
+  const stripe = getStripe();
+  try {
+    const existing = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const action = getStripePaymentReleaseAction(existing.status);
+    if (action === 'cancel') {
+      await stripe.paymentIntents.cancel(paymentIntentId);
+    }
+  } catch (err) {
+    console.error(`[payments] No se pudo cancelar PI obsoleto ${paymentIntentId}:`, err);
+  }
+}
+
 export async function createStripePaymentIntent(orderId: string, userId: string) {
   const raw = await getOrderById(orderId, userId);
   if (!raw) {
@@ -178,6 +192,8 @@ export async function createStripePaymentIntent(orderId: string, userId: string)
             paymentIntentId: existing.id,
           };
         }
+
+        await cancelReusablePaymentIntentIfNeeded(existingIntentId);
       }
     } catch {
       // Crear nuevo intent si el anterior no es reutilizable
@@ -214,6 +230,28 @@ export async function createStripePaymentIntent(orderId: string, userId: string)
   return {
     clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
+  };
+}
+
+export async function prepareOrderPayment(orderId: string, userId: string) {
+  if (!isStripeConfigured()) {
+    throw new Error('Pagos con tarjeta no configurados');
+  }
+
+  const prepared = await preparePendingOrderPayment(orderId, userId);
+
+  if (prepared.previousPaymentIntentId) {
+    await cancelReusablePaymentIntentIfNeeded(prepared.previousPaymentIntentId);
+  }
+
+  const payment = await createStripePaymentIntent(orderId, userId);
+
+  return {
+    order: prepared.order,
+    adjustments: prepared.adjustments,
+    quantitySummary: prepared.quantitySummary,
+    clientSecret: payment.clientSecret,
+    paymentIntentId: payment.paymentIntentId,
   };
 }
 

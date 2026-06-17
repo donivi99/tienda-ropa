@@ -340,6 +340,18 @@ export default function ProfileOrdersTab({
                     </div>
                   </div>
 
+                  {detailOrder.status === 'pendiente_pago' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigate(`/finalizar-compra?orderId=${encodeURIComponent(detailOrder.id)}`);
+                      }}
+                      className="w-full rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/10 px-4 py-3 text-sm font-semibold uppercase tracking-wider text-[#d4af37] transition-colors hover:bg-[#d4af37]/20"
+                    >
+                      Realizar pago
+                    </button>
+                  )}
+
                   {RECEIPT_STATUSES.has(detailOrder.status) && (
                     <button
                       type="button"

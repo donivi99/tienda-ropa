@@ -74,4 +74,18 @@ export type OrderStatus =
 
 export type RefundPendingReason = 'stock_insufficient' | 'order_canceled';
 
+export interface StockAdjustment {
+  productId: string;
+  name: string;
+  selectedSize: string;
+  requestedQuantity: number;
+  availableQuantity: number;
+  appliedQuantity: number;
+}
+
+export interface OrderQuantitySummary {
+  requestedTotal: number;
+  appliedTotal: number;
+}
+
 export const SHIPPING_FEE = 4.99;

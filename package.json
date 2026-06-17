@@ -10,7 +10,7 @@
     "build": "tsc -b && vite build && cd backend && npm run build",
     "start": "cd backend && NODE_ENV=production node dist/index.js",
     "lint": "eslint .",
-    "test": "tsx --test src/utils/shippingAddress.test.ts && cd backend && npm test",
+    "test": "tsx --test src/utils/shippingAddress.test.ts src/utils/stockAdjustments.test.ts && cd backend && npm test",
     "preview": "vite preview",
     "seed:admin": "cd backend && npm run seed:admin",
     "seed:products": "cd backend && npm run seed:products",
