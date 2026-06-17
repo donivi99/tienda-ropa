@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AdminSelect, ORDER_STATUS_TONES, orderStatusOptions } from '../../components/admin/AdminSelect';
+import { AdminSelect, orderStatusOptions } from '../../components/admin/AdminSelect';
 import { api } from '../../services/api';
 import type { CartItem, ShippingAddress } from '../../types';
 import AddressDisplay from '../../components/shipping/AddressDisplay';
@@ -64,10 +64,6 @@ const SORT_OPTIONS = [
   { value: 'total-asc', label: 'Total (menor)' },
   { value: 'status', label: 'Estado' },
 ];
-
-function statusBadgeClass(status: string) {
-  return ORDER_STATUS_TONES[status] ?? 'border-[#2a2520] bg-[#1e1b18] text-[#a89a82]';
-}
 
 function statusLabel(status: string) {
   return adminStatusLabel(status);
@@ -486,12 +482,17 @@ export default function AdminOrders() {
                   </td>
                   <td className="px-4 py-3 text-[#a89a82]">{order.items?.length || 0} productos</td>
                   <td className="px-4 py-3 font-semibold text-[#d4af37]">{order.total?.toFixed(2)}€</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-lg border px-3 py-1 text-xs font-medium ${statusBadgeClass(order.status)}`}
-                    >
-                      {statusLabel(order.status)}
-                    </span>
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <AdminSelect
+                      id={`order-status-${order.id}`}
+                      value={order.status}
+                      onChange={(v) => void handleStatusChange(order.id, v)}
+                      options={orderStatusOptions(getAdminStatusSelectOptions(order.status))}
+                      variant="status"
+                      size="compact"
+                      className="min-w-[9.5rem]"
+                      disabled={getAdminAllowedStatuses(order.status).length === 0}
+                    />
                   </td>
                   <td className="px-4 py-3 text-[#a89a82]">
                     <span className="block">{formatDateTime(order.createdAt)}</span>
