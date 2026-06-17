@@ -86,7 +86,7 @@ El `whsec_...` **no** está en la pantalla de Claves de API. Ver [¿Dónde está
 1. Modo **Entorno de prueba** activo en Stripe.
 2. Rellena `pk_test_` y `sk_test_` en los `.env`.
 3. `npm run dev` desde la raíz del monorepo.
-4. Compra de prueba con tarjeta `4242 4242 4242 4242` (fecha futura, CVC `123`).
+4. Compra de prueba con tarjeta `4242 4242 4242 4242` (12/34, CVC `123`).
 5. Verifica:
    - Pedido **pagado** en la web (Mi cuenta → Pedidos).
    - Pago en [dashboard.stripe.com/test/payments](https://dashboard.stripe.com/test/payments).

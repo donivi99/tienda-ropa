@@ -5,8 +5,11 @@ import { api } from '../../services/api';
 import type { CartItem, ShippingAddress } from '../../types';
 import { formatDateTime, formatEuro, shortOrderId, statusBadgeClass, statusLabel } from '../../utils/orderUi';
 import AddressDisplay from '../shipping/AddressDisplay';
+import OrderReceipt from './OrderReceipt';
 
 type OrderStatus = 'pendiente_pago' | 'pagado' | 'enviado' | 'entregado' | 'cancelado' | 'pago_fallido' | 'reembolsado' | 'reembolso_pendiente';
+
+const RECEIPT_STATUSES = new Set<OrderStatus>(['pagado', 'enviado', 'entregado']);
 
 export interface UserOrder {
   id: string;
@@ -18,6 +21,11 @@ export interface UserOrder {
   status: OrderStatus;
   createdAt: string;
   updatedAt?: string;
+  paidAt?: string | null;
+  paymentMethod?: string | null;
+  stripePaymentIntentId?: string | null;
+  userEmail?: string;
+  userName?: string;
 }
 
 type OptimisticAction = { type: 'cancel'; id: string };
@@ -51,6 +59,7 @@ export default function ProfileOrdersTab({
   const [detailError, setDetailError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState('');
+  const [receiptOrder, setReceiptOrder] = useState<UserOrder | null>(null);
 
   const openDetail = useCallback(async (orderId: string) => {
     setDetailError('');
@@ -81,6 +90,7 @@ export default function ProfileOrdersTab({
       setDetailOrder(null);
       setDetailError('');
       setCancelError('');
+      setReceiptOrder(null);
     }
   }, [orderId, openDetail]);
 
@@ -330,6 +340,30 @@ export default function ProfileOrdersTab({
                     </div>
                   </div>
 
+                  {RECEIPT_STATUSES.has(detailOrder.status) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void (async () => {
+                          if (!detailOrder.paidAt) {
+                            try {
+                              const fresh = await api.get<UserOrder>(`/api/orders/${detailOrder.id}`);
+                              setReceiptOrder(fresh);
+                              setDetailOrder(fresh);
+                              return;
+                            } catch {
+                              // Usar datos en pantalla si falla la recarga
+                            }
+                          }
+                          setReceiptOrder(detailOrder);
+                        })();
+                      }}
+                      className="w-full rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/10 px-4 py-3 text-sm font-semibold uppercase tracking-wider text-[#d4af37] transition-colors hover:bg-[#d4af37]/20"
+                    >
+                      Mi recibo
+                    </button>
+                  )}
+
                   {(detailOrder.status === 'pagado' || detailOrder.status === 'pendiente_pago' || detailOrder.status === 'pago_fallido') && (
                     <button
                       type="button"
@@ -360,6 +394,8 @@ export default function ProfileOrdersTab({
           </div>
         </div>
       )}
+
+      {receiptOrder && <OrderReceipt order={receiptOrder} onClose={() => setReceiptOrder(null)} />}
     </div>
   );
 }
