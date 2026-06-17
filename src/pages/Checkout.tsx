@@ -6,6 +6,7 @@ import { SHIPPING_FEE, type ShippingAddress } from '../types';
 import { api } from '../services/api';
 import { PROFILE_ROUTES } from '../constants/profileRoutes';
 import AddressFields from '../components/shipping/AddressFields';
+import StripeCheckoutPayment from '../components/checkout/StripeCheckoutPayment';
 import {
   EMPTY_SHIPPING_ADDRESS,
   isProfileShippingIncomplete,
@@ -30,6 +31,16 @@ function IncompleteProfileBanner() {
   );
 }
 
+interface CreatedOrder {
+  id: string;
+  total: number;
+}
+
+interface PaymentIntentResponse {
+  clientSecret: string;
+  paymentIntentId: string;
+}
+
 export default function Checkout() {
   const {
     items,
@@ -49,7 +60,9 @@ export default function Checkout() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'method' | 'address'>(deliveryMethod ? 'address' : 'method');
+  const [step, setStep] = useState<'method' | 'address' | 'payment'>(deliveryMethod ? 'address' : 'method');
+  const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   const profileIncomplete = isProfileShippingIncomplete(profile);
 
@@ -66,7 +79,7 @@ export default function Checkout() {
     setStep('address');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleContinueToPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return;
 
@@ -88,51 +101,59 @@ export default function Checkout() {
     setShippingAddress(fullAddress);
 
     try {
-      const order = await api.post<{ id: string }>('/api/orders', {
+      const order = await api.post<CreatedOrder & { total?: number }>('/api/orders', {
         userName: user?.displayName || fullAddress.nombre,
         items: items.map((item) => ({
           productId: item.productId,
-          name: item.name,
-          quantity: item.quantity,
           selectedSize: item.selectedSize,
           selectedColor: item.selectedColor,
-          price: item.price,
-          image: item.image,
+          quantity: item.quantity,
         })),
-        subtotal,
-        shippingFee,
-        totalAmount: totalFinal,
         shippingAddress: fullAddress,
         deliveryMethod: 'domicilio',
       });
 
-      try {
-        await api.put('/api/auth/me', shippingAddressToProfileUpdate(fullAddress));
-        await refreshProfile();
-      } catch {
-        // El pedido ya se creó; no bloquear la confirmación si falla guardar el perfil
-      }
-
-      clearCart();
-      navigate(`/pedido-confirmado?orderId=${order.id}`, {
-        state: {
-          orderId: order.id,
-          total: totalFinal,
-          shippingAddress: fullAddress,
-        },
+      const payment = await api.post<PaymentIntentResponse>('/api/payments/stripe/create-intent', {
+        orderId: order.id,
       });
+
+      setCreatedOrder({ id: order.id, total: order.total ?? totalFinal });
+      setClientSecret(payment.clientSecret);
+      setStep('payment');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al procesar la compra');
+      setError(err instanceof Error ? err.message : 'Error al preparar el pago');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePaymentSuccess = async () => {
+    if (!createdOrder) return;
+
+    const fullAddress = normalizeShippingAddress(address);
+
+    try {
+      await api.put('/api/auth/me', shippingAddressToProfileUpdate(fullAddress));
+      await refreshProfile();
+    } catch {
+      // No bloquear confirmación si falla guardar perfil
+    }
+
+    clearCart();
+    navigate(`/pedido-confirmado?orderId=${createdOrder.id}`, {
+      state: {
+        orderId: createdOrder.id,
+        total: createdOrder.total,
+        shippingAddress: fullAddress,
+      },
+    });
   };
 
   const updateAddress = (patch: Partial<ShippingAddress>) => {
     setAddress((current) => ({ ...current, ...patch }));
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 && step !== 'payment') {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <h2 className="text-2xl font-bold mb-4 text-[#f5e6c8]">Tu carrito está vacío</h2>
@@ -170,7 +191,9 @@ export default function Checkout() {
         </div>
         <div className="border-t border-[#2a2520] pt-2 flex justify-between font-bold text-lg">
           <span className="text-[#f5e6c8]">Total</span>
-          <span className="text-[#d4af37]">€{deliveryMethod ? totalFinal.toFixed(2) : subtotal.toFixed(2)}</span>
+          <span className="text-[#d4af37]">
+            €{(createdOrder?.total ?? (deliveryMethod ? totalFinal : subtotal)).toFixed(2)}
+          </span>
         </div>
       </div>
 
@@ -197,7 +220,7 @@ export default function Checkout() {
       )}
 
       {step === 'address' && (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleContinueToPayment} className="space-y-4">
           <button
             type="button"
             onClick={() => setStep('method')}
@@ -249,9 +272,32 @@ export default function Checkout() {
             disabled={loading}
             className="w-full bg-[#d4af37] text-[#0a0a0a] py-3 rounded-lg font-bold hover:bg-[#b8962e] disabled:opacity-50 transition-colors uppercase tracking-wider"
           >
-            {loading ? 'Procesando...' : 'Comprar'}
+            {loading ? 'Preparando pago...' : 'Continuar al pago'}
           </button>
         </form>
+      )}
+
+      {step === 'payment' && createdOrder && clientSecret && (
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => setStep('address')}
+            className="text-sm text-[#a89a82] hover:text-[#d4af37] transition-colors"
+          >
+            ← Volver a dirección de envío
+          </button>
+
+          <h3 className="text-lg font-semibold text-[#f5e6c8]">Pago con tarjeta</h3>
+
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+
+          <StripeCheckoutPayment
+            clientSecret={clientSecret}
+            orderId={createdOrder.id}
+            onSuccess={handlePaymentSuccess}
+            onError={setError}
+          />
+        </div>
       )}
     </div>
   );

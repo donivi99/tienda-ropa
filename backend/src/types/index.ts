@@ -49,13 +49,29 @@ export interface ShippingAddress {
   referencias?: string;
 }
 
+export interface OrderItemInput {
+  productId: string;
+  selectedSize: string;
+  selectedColor: string;
+  quantity: number;
+}
+
 export interface OrderInput {
-  items: OrderItem[];
+  items: OrderItemInput[];
   shippingAddress: ShippingAddress;
   deliveryMethod: 'domicilio';
-  subtotal: number;
-  shippingFee: number;
-  totalAmount: number;
 }
+
+export type OrderStatus =
+  | 'pendiente_pago'
+  | 'pagado'
+  | 'enviado'
+  | 'entregado'
+  | 'cancelado'
+  | 'pago_fallido'
+  | 'reembolsado'
+  | 'reembolso_pendiente';
+
+export type RefundPendingReason = 'stock_insufficient' | 'order_canceled';
 
 export const SHIPPING_FEE = 4.99;

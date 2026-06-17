@@ -53,7 +53,7 @@ export interface Order {
   totalAmount: number;
   shippingAddress: ShippingAddress;
   deliveryMethod: 'domicilio';
-  status: 'pagado' | 'enviado' | 'entregado' | 'cancelado';
+  status: 'pendiente_pago' | 'pagado' | 'enviado' | 'entregado' | 'cancelado' | 'pago_fallido' | 'reembolsado' | 'reembolso_pendiente';
   createdAt: Date;
 }
 

@@ -5,8 +5,14 @@ import { api } from '../../services/api';
 import type { CartItem, ShippingAddress } from '../../types';
 import AddressDisplay from '../../components/shipping/AddressDisplay';
 import { formatAddress } from '../../utils/orderUi';
+import {
+  ADMIN_ORDER_STATUS_LABELS,
+  adminStatusLabel,
+  getAdminAllowedStatuses,
+  getAdminStatusSelectOptions,
+} from '../../utils/adminOrderTransitions';
 
-type OrderStatus = 'pagado' | 'enviado' | 'entregado' | 'cancelado';
+type AdminOrderStatus = keyof typeof ADMIN_ORDER_STATUS_LABELS | string;
 type DateFilter = 'all' | 'today' | 'week' | 'month';
 type SortKey = 'date-desc' | 'date-asc' | 'total-desc' | 'total-asc' | 'status';
 
@@ -21,29 +27,28 @@ interface AdminOrder {
   total: number;
   shippingAddress: ShippingAddress;
   deliveryMethod?: 'domicilio';
-  status: OrderStatus;
+  status: AdminOrderStatus;
   createdAt: string;
   updatedAt?: string;
 }
 
-const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
-  { value: 'pagado', label: 'Pagado' },
-  { value: 'enviado', label: 'Enviado' },
-  { value: 'entregado', label: 'Entregado' },
-  { value: 'cancelado', label: 'Cancelado' },
-];
-
-const STATUS_SORT_ORDER: Record<OrderStatus, number> = {
-  pagado: 0,
-  enviado: 1,
-  entregado: 2,
-  cancelado: 3,
-};
-
 const STALE_PAGADO_DAYS = 3;
 
-const STATUS_SELECT_OPTIONS = orderStatusOptions(STATUS_OPTIONS);
-const STATUS_FILTER_OPTIONS = orderStatusOptions(STATUS_OPTIONS, { label: 'Todos' });
+const STATUS_SORT_ORDER: Record<string, number> = {
+  reembolso_pendiente: -1,
+  pendiente_pago: 0,
+  pago_fallido: 1,
+  pagado: 2,
+  enviado: 3,
+  entregado: 4,
+  reembolsado: 5,
+  cancelado: 6,
+};
+
+const STATUS_FILTER_OPTIONS = orderStatusOptions(
+  Object.entries(ADMIN_ORDER_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+  { label: 'Todos' },
+);
 
 const DATE_FILTER_OPTIONS = [
   { value: 'all', label: 'Todas' },
@@ -64,8 +69,8 @@ function statusBadgeClass(status: string) {
   return ORDER_STATUS_TONES[status] ?? 'border-[#2a2520] bg-[#1e1b18] text-[#a89a82]';
 }
 
-function statusLabel(status: OrderStatus) {
-  return STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+function statusLabel(status: string) {
+  return adminStatusLabel(status);
 }
 
 function formatDateTime(iso: string) {
@@ -98,7 +103,7 @@ function matchesDateFilter(createdAt: string, filter: DateFilter) {
   return created >= cutoff;
 }
 
-type OptimisticAction = { type: 'status'; id: string; status: OrderStatus };
+type OptimisticAction = { type: 'status'; id: string; status: string };
 
 function applyOptimistic(orders: AdminOrder[], action: OptimisticAction): AdminOrder[] {
   if (action.type === 'status') {
@@ -118,7 +123,7 @@ export default function AdminOrders() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<OrderStatus | ''>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterDate, setFilterDate] = useState<DateFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('date-desc');
 
@@ -209,7 +214,7 @@ export default function AdminOrders() {
         case 'total-asc':
           return (a.total ?? 0) - (b.total ?? 0);
         case 'status':
-          return STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
+          return (STATUS_SORT_ORDER[a.status] ?? 99) - (STATUS_SORT_ORDER[b.status] ?? 99);
         case 'date-desc':
         default:
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -228,8 +233,15 @@ export default function AdminOrders() {
     return { pendingShip, stalePending, revenue };
   }, [filteredOrders]);
 
-  const handleStatusChange = async (orderId: string, status: OrderStatus) => {
+  const handleStatusChange = async (orderId: string, status: string) => {
     const previous = orders.find((o) => o.id === orderId)?.status;
+    if (!previous || status === previous) return;
+
+    const allowed = getAdminAllowedStatuses(previous);
+    if (!allowed.includes(status)) {
+      showToast('Transición de estado no permitida', 'error');
+      return;
+    }
 
     startTransition(() => {
       dispatchOptimistic({ type: 'status', id: orderId, status });
@@ -395,7 +407,7 @@ export default function AdminOrders() {
             id="filter-status"
             label="Estado"
             value={filterStatus}
-            onChange={(v) => setFilterStatus(v as OrderStatus | '')}
+            onChange={(v) => setFilterStatus(v)}
             options={STATUS_FILTER_OPTIONS}
             variant="status"
           />
@@ -591,9 +603,10 @@ export default function AdminOrders() {
                         id="detail-order-status"
                         label="Estado"
                         value={detailOrder.status}
-                        onChange={(v) => handleStatusChange(detailOrder.id, v as OrderStatus)}
-                        options={STATUS_SELECT_OPTIONS}
+                        onChange={(v) => handleStatusChange(detailOrder.id, v)}
+                        options={orderStatusOptions(getAdminStatusSelectOptions(detailOrder.status))}
                         variant="status"
+                        disabled={getAdminAllowedStatuses(detailOrder.status).length === 0}
                       />
                     </div>
                     <div className="rounded-xl border border-[#2a2520] bg-[#1e1b18] p-4">

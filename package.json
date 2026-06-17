@@ -14,9 +14,12 @@
     "preview": "vite preview",
     "seed:admin": "cd backend && npm run seed:admin",
     "seed:products": "cd backend && npm run seed:products",
-    "migrate:categories": "cd backend && npm run migrate:categories"
+    "migrate:categories": "cd backend && npm run migrate:categories",
+    "retry:refunds": "cd backend && npm run retry:refunds"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^6.6.0",
+    "@stripe/stripe-js": "^9.8.0",
     "firebase": "^12.14.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

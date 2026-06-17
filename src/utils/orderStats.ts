@@ -20,7 +20,7 @@ export function computeUserOrderStats(orders: OrderStatsInput[]): UserOrderStats
   for (const order of orders) {
     const isCancelled = order.status === 'cancelado';
 
-    if (!isCancelled) {
+    if (!isCancelled && (order.status === 'pagado' || order.status === 'enviado' || order.status === 'entregado')) {
       orderCount += 1;
       totalSpent += order.total ?? 0;
       if (order.createdAt) {

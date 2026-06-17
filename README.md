@@ -23,6 +23,9 @@ VITE_FIREBASE_STORAGE_BUCKET=tu-proyecto.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 VITE_API_URL=http://localhost:3000
+
+# Stripe — Clave publicable (modo test: dashboard.stripe.com/test/apikeys)
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
 **Backend** — ver [backend/README.md](./backend/README.md#configuración) para `backend/.env` (Firebase Admin + seeds).
@@ -39,6 +42,10 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 ADMIN_SEED_EMAIL=admin@tiendaropa.com
 ADMIN_SEED_PASSWORD=pon_una_contraseña_segura
 ADMIN_SEED_NAME=Administrador
+
+# Stripe (backend) — ver backend/README.md#stripe-pagos-con-tarjeta
+STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_...   # opcional en local; obligatorio en producción
 ```
 
 > No subas `.env` ni `backend/.env` al repositorio.
@@ -70,6 +77,29 @@ firebase deploy --only firestore:rules
 ```
 
 Las reglas están en `firestore.rules` (lectura pública de productos; escrituras solo backend).
+
+### 7. Probar pagos con Stripe (modo test)
+
+No hace falta instalar nada extra. Con `pk_test_` y `sk_test_` en tus `.env` basta.
+
+1. Activa el **entorno de prueba** en [dashboard.stripe.com](https://dashboard.stripe.com) (banner azul arriba).
+2. Copia las claves en **Desarrolladores → Claves de API**:
+   - **Clave publicable** (`pk_test_...`) → `VITE_STRIPE_PUBLISHABLE_KEY` en `.env`
+   - **Clave secreta** (`sk_test_...`) → `STRIPE_SECRET_KEY` en `backend/.env`
+   - No uses la **clave restringida** (`rk_test_...`).
+3. `npm run dev` → inicia sesión → añade producto al carrito → **Finalizar compra**.
+4. Completa dirección → **Continuar al pago** → paga con tarjeta de prueba:
+
+| Escenario | Número | Fecha | CVC |
+|-----------|--------|-------|-----|
+| Pago simple | `4242 4242 4242 4242` | Futura (ej. `12/34`) | `123` |
+| 3DS (redirect) | `4000 0025 0000 3155` | Futura | `123` |
+
+5. Comprueba que el pedido queda **pagado** en Mi cuenta → Pedidos y que el pago aparece en [Stripe → Payments (test)](https://dashboard.stripe.com/test/payments).
+
+En producción, configura también `STRIPE_WEBHOOK_SECRET` (el backend no arranca sin ella). Ver checklist completo en backend/README.md.
+
+Detalle de claves, webhook (`whsec_`) y flujo de seguridad: **[backend/README.md — Stripe](./backend/README.md#stripe-pagos-con-tarjeta)**.
 
 ## Comandos
 
@@ -127,6 +157,7 @@ tienda-ropa/
 | `/api/auth` | Login, registro, perfil |
 | `/api/products` | Catálogo (público activos; CRUD admin) |
 | `/api/orders` | Pedidos del usuario |
+| `/api/payments` | Stripe: Payment Intent y confirmación |
 | `/api/admin` | Dashboard, usuarios, pedidos, productos |
 | `/api/contact` | Mensajes de contacto |
 

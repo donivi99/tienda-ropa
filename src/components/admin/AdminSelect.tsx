@@ -274,17 +274,25 @@ export function AdminSelect({
 
 /** Tonos cálidos para trigger de estado (menos saturados que azul/verde puro) */
 export const ORDER_STATUS_TONES: Record<string, string> = {
+  pendiente_pago: 'border-[#a89a82]/40 bg-[#2a2520] text-[#c9bfb0]',
   pagado: 'border-[#d4af37]/45 bg-[#d4af37]/14 text-[#e8c96a]',
   enviado: 'border-[#6a9fb5]/40 bg-[#4a7080]/20 text-[#9ec4d4]',
   entregado: 'border-[#6b9e7a]/40 bg-[#4a7058]/20 text-[#a8d4b4]',
   cancelado: 'border-[#b87a7a]/40 bg-[#704848]/20 text-[#d4a8a8]',
+  pago_fallido: 'border-[#b87a7a]/40 bg-[#704848]/20 text-[#d4a8a8]',
+  reembolsado: 'border-[#b87a7a]/40 bg-[#704848]/20 text-[#d4a8a8]',
+  reembolso_pendiente: 'border-[#c9a227]/40 bg-[#705820]/20 text-[#e8c96a]',
 };
 
 export const ORDER_STATUS_DOTS: Record<string, string> = {
+  pendiente_pago: 'bg-[#8a7d6a]',
   pagado: 'bg-[#d4af37]',
   enviado: 'bg-[#7eb8c9]',
   entregado: 'bg-[#7aad88]',
   cancelado: 'bg-[#c98888]',
+  pago_fallido: 'bg-[#c98888]',
+  reembolsado: 'bg-[#c98888]',
+  reembolso_pendiente: 'bg-[#c9a227]',
   '': 'bg-[#8a7d6a]',
 };
 

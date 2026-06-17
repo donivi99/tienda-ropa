@@ -29,6 +29,7 @@ backend/src/
 │   ├── auth.ts
 │   ├── products.ts
 │   ├── orders.ts
+│   ├── payments.ts       # Stripe
 │   ├── admin.ts
 │   └── contact.ts
 ├── services/             # Lógica de negocio + Firestore
@@ -59,7 +60,82 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 ADMIN_SEED_EMAIL=admin@tiendaropa.com
 ADMIN_SEED_PASSWORD=pon_una_contraseña_segura
 ADMIN_SEED_NAME=Administrador
+
+# Stripe (modo test) — ver sección «Stripe» más abajo
+STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_...   # opcional en local; obligatorio en producción
 ```
+
+### Stripe (pagos con tarjeta)
+
+Checkout con **Stripe Payment Element**. Los pedidos se crean en `pendiente_pago`; el stock se descuenta solo cuando el pago se confirma. Los precios se calculan en servidor (el cliente no puede manipular importes).
+
+#### Qué clave va en cada variable
+
+| En Stripe (Desarrolladores → Claves de API) | Prefijo | Variable | Archivo |
+|---------------------------------------------|---------|----------|---------|
+| **Clave publicable** | `pk_test_...` | `VITE_STRIPE_PUBLISHABLE_KEY` | `.env` (raíz) |
+| **Clave secreta** | `sk_test_...` | `STRIPE_SECRET_KEY` | `backend/.env` |
+| **Clave restringida** | `rk_test_...` | — | **No usar** |
+| **Secreto de webhook** | `whsec_...` | `STRIPE_WEBHOOK_SECRET` | `backend/.env` |
+
+El `whsec_...` **no** está en la pantalla de Claves de API. Ver [¿Dónde está el webhook?](#secreto-de-webhook-whsec) más abajo.
+
+#### Probar en local (sin instalar nada)
+
+1. Modo **Entorno de prueba** activo en Stripe.
+2. Rellena `pk_test_` y `sk_test_` en los `.env`.
+3. `npm run dev` desde la raíz del monorepo.
+4. Compra de prueba con tarjeta `4242 4242 4242 4242` (fecha futura, CVC `123`).
+5. Verifica:
+   - Pedido **pagado** en la web (Mi cuenta → Pedidos).
+   - Pago en [dashboard.stripe.com/test/payments](https://dashboard.stripe.com/test/payments).
+
+Sin `STRIPE_WEBHOOK_SECRET` el flujo sigue funcionando en local gracias a `POST /api/payments/stripe/confirm` tras el pago en el navegador y en la página de confirmación tras redirects 3DS.
+
+**En producción** (`NODE_ENV=production`), si `STRIPE_SECRET_KEY` está configurada, el backend **no arranca** sin `STRIPE_WEBHOOK_SECRET`.
+
+#### Secreto de webhook (`whsec_`)
+
+Opcional en desarrollo; **obligatorio en producción** (el servidor falla al arrancar si falta).
+
+| Entorno | Cómo obtenerlo |
+|---------|----------------|
+| **Local** | [Stripe CLI](https://stripe.com/docs/stripe-cli): `stripe listen --forward-to localhost:3000/api/payments/stripe/webhook` → copia el `whsec_...` que imprime |
+| **Producción** | [Desarrolladores → Webhooks](https://dashboard.stripe.com/test/webhooks) → añadir endpoint `https://tudominio.com/api/payments/stripe/webhook` → **Signing secret** |
+
+#### Flujo de pago
+
+```
+Checkout → POST /api/orders (pendiente_pago)
+        → POST /api/payments/stripe/create-intent
+        → Usuario paga (Stripe Elements)
+        → POST /api/payments/stripe/confirm  y/o  webhook payment_intent.succeeded
+        → pedido pagado + stock descontado
+```
+
+Tras autenticación 3DS, Stripe redirige a `/pedido-confirmado?orderId=...`. Esa página llama a `confirm` automáticamente (no confía en query params de Stripe).
+
+#### Tarjetas de prueba
+
+| Escenario | Número | Resultado esperado |
+|-----------|--------|-------------------|
+| Pago simple | `4242 4242 4242 4242` | Pedido `pagado`, stock descontado |
+| 3DS | `4000 0025 0000 3155` | Redirect → confirm → `pagado` |
+| Webhook | `stripe listen` + pago | Mismo resultado vía webhook |
+| Stock agotado (dos compras simultáneas) | Dos sesiones, stock 1 | Una `pagado`; otra reembolso automático (`reembolsado`) |
+| Cancelar pedido pendiente | Cancelar en Mi cuenta o admin | PI cancelado en Stripe; no se puede pagar con `clientSecret` antiguo |
+
+#### Seguridad
+
+- Importes calculados en servidor desde Firestore (`resolveOrderItems`).
+- Confirmación de pago vía API de Stripe o webhook con firma verificada; misma validación (`assertPaymentIntentMatchesOrder`) en ambos caminos.
+- `fulfillPaidOrder` es idempotente (no descuenta stock dos veces).
+- Si el stock falla tras cobrar, se emite reembolso automático en Stripe y el pedido queda en `reembolsado`.
+- Al cancelar un pedido (`pendiente_pago`, `pago_fallido` o `reembolsado`), el Payment Intent se invalida en Stripe (`cancel` o `refund` si ya se cobró).
+- Si el cobro llega en carrera tras la cancelación (webhook o `confirm`), se reembolsa automáticamente y el pedido pasa a `reembolsado`.
+- El admin **no puede** marcar `pagado` manualmente desde `pendiente_pago`; solo avanza logística (`enviado`, `entregado`) o cancela.
+- Si falla un reembolso en Stripe, el pedido queda en `reembolso_pendiente`; reintentar con `npm run retry:refunds` (backend).
 
 ### Arrancar solo el backend
 
@@ -97,9 +173,9 @@ El rol admin también se refleja en custom claims de Firebase Auth.
 
 ### `orders/{id}`
 
-Pedido con `userId`, `items[]`, `subtotal`, `shippingFee`, `total`, `shippingAddress`, `deliveryMethod`, `status` (`pagado` \| `enviado` \| `entregado` \| `cancelado`), timestamps.
+Pedido con `userId`, `items[]`, `subtotal`, `shippingFee`, `total`, `shippingAddress`, `deliveryMethod`, `status` (`pendiente_pago` \| `pagado` \| `enviado` \| `entregado` \| `cancelado` \| `pago_fallido`), `paymentMethod`, `stripePaymentIntentId`, `paidAt`, timestamps.
 
-Al crear un pedido se valida y descuenta stock en transacción.
+Al crear un pedido se valida stock y precios en servidor; el stock se descuenta solo al confirmar el pago.
 
 ### `counters/products`
 
@@ -143,10 +219,20 @@ Listado completo (incl. inactivos) para admin: `GET /api/admin/products`.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| POST | `/` | Sí | Crear pedido |
+| POST | `/` | Sí | Crear pedido (`pendiente_pago`) |
 | GET | `/` | Sí | Mis pedidos |
 | GET | `/:id` | Sí | Detalle |
-| PUT | `/:id/cancel` | Sí | Cancelar (restaura stock) |
+| PUT | `/:id/cancel` | Sí | Cancelar (restaura stock si ya estaba pagado; invalida PI en Stripe si pendiente) |
+
+### Pagos — `/api/payments`
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/stripe/create-intent` | Sí | Crea Payment Intent para un pedido propio |
+| POST | `/stripe/confirm` | Sí | Confirma pago consultando Stripe (tras Elements) |
+| POST | `/stripe/webhook` | No* | Eventos Stripe (`payment_intent.succeeded`, etc.) |
+
+\* El webhook valida la firma `stripe-signature` con `STRIPE_WEBHOOK_SECRET`; no usa JWT.
 
 ### Admin — `/api/admin`
 

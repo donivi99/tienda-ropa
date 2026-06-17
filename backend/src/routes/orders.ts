@@ -5,6 +5,8 @@ import {
   getOrderById,
   cancelOrder,
 } from '../services/orderService.js';
+import { releaseStripePaymentForOrder } from '../services/paymentService.js';
+import { isOrderPaymentReleasable } from '../utils/stripePayment.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { validate, validateOrder } from '../middleware/validate.js';
 import type { AuthRequest } from '../types/index.js';
@@ -55,12 +57,16 @@ router.get('/:id', authMiddleware, async (req: AuthRequest, res) => {
 
 router.put('/:id/cancel', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const result = await cancelOrder(req.params.id as string, req.user!.uid);
+    const orderId = req.params.id as string;
+    const result = await cancelOrder(orderId, req.user!.uid);
     if (!result) {
       res.status(404).json({ error: 'Pedido no encontrado o no se puede cancelar' });
       return;
     }
-    res.json(result);
+    if (isOrderPaymentReleasable(result.previousStatus)) {
+      await releaseStripePaymentForOrder(orderId);
+    }
+    res.json({ id: result.id, status: result.status });
   } catch {
     res.status(500).json({ error: 'Error al cancelar pedido' });
   }

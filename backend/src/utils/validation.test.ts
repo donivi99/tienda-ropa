@@ -5,7 +5,7 @@ import {
   validateProfileAddressFields,
   SPAIN_CP_REGEX,
 } from './validation.js';
-import { validateProduct, validateProductUpdate } from '../middleware/validate.js';
+import { validateProduct, validateProductUpdate, validateOrder } from '../middleware/validate.js';
 
 describe('validateProduct', () => {
   it('rejects missing name', () => {
@@ -63,5 +63,43 @@ describe('validateProfileAddressFields', () => {
   it('allows empty partial profile address', () => {
     const err = validateProfileAddressFields({});
     assert.equal(err, null);
+  });
+});
+
+describe('validateOrder', () => {
+  const validAddress = {
+    nombre: 'Ana',
+    telefono: '612345678',
+    calle: 'Mayor',
+    numero: '1',
+    ciudad: 'Madrid',
+    provincia: 'Madrid',
+    codigoPostal: '28001',
+  };
+
+  it('requires items and address', () => {
+    assert.equal(validateOrder({ deliveryMethod: 'domicilio' }), 'Al menos un producto requerido');
+  });
+
+  it('accepts order without client-side prices', () => {
+    const err = validateOrder({
+      deliveryMethod: 'domicilio',
+      shippingAddress: validAddress,
+      items: [
+        { productId: 'abc', selectedSize: 'M', selectedColor: 'negro', quantity: 1 },
+      ],
+    });
+    assert.equal(err, null);
+  });
+
+  it('rejects invalid quantity', () => {
+    const err = validateOrder({
+      deliveryMethod: 'domicilio',
+      shippingAddress: validAddress,
+      items: [
+        { productId: 'abc', selectedSize: 'M', selectedColor: 'negro', quantity: 0 },
+      ],
+    });
+    assert.equal(err, 'Cantidad inválida (1-99)');
   });
 });

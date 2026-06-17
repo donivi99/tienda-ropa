@@ -120,9 +120,6 @@ export function validateContactMessage(body: Record<string, unknown>): string | 
 export function validateOrder(body: Record<string, unknown>): string | null {
   if (!Array.isArray(body.items) || body.items.length === 0) return 'Al menos un producto requerido';
   if (body.deliveryMethod !== 'domicilio') return 'Método de entrega inválido';
-  if (typeof body.subtotal !== 'number' || body.subtotal <= 0) return 'Subtotal inválido';
-  if (typeof body.shippingFee !== 'number' || body.shippingFee < 0) return 'Coste de envío inválido';
-  if (typeof body.totalAmount !== 'number' || body.totalAmount <= 0) return 'Total inválido';
 
   if (!body.shippingAddress || typeof body.shippingAddress !== 'object') return 'Dirección de envío requerida';
   const addrErr = validateShippingAddressFields(body.shippingAddress as Record<string, unknown>);
@@ -131,8 +128,15 @@ export function validateOrder(body: Record<string, unknown>): string | null {
   for (const item of body.items) {
     if (!item || typeof item !== 'object') return 'Ítem de pedido inválido';
     const row = item as Record<string, unknown>;
-    if (row.image !== undefined && !isAllowedHttpsUrl(row.image)) {
-      return 'URL de imagen inválida (solo HTTPS)';
+    if (typeof row.productId !== 'string' || !row.productId.trim()) return 'productId requerido';
+    if (typeof row.selectedSize !== 'string' || !row.selectedSize.trim()) return 'Talla requerida';
+    if (typeof row.selectedColor !== 'string' || !row.selectedColor.trim()) return 'Color requerido';
+    if (typeof row.quantity !== 'number' || !Number.isInteger(row.quantity) || row.quantity < 1 || row.quantity > 99) {
+      return 'Cantidad inválida (1-99)';
+    }
+    // Precios y totales se calculan en servidor (anti-tampering)
+    if ('price' in row || 'subtotal' in body || 'totalAmount' in body) {
+      // Ignorados deliberadamente; no rechazamos para no romper clientes antiguos
     }
   }
 

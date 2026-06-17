@@ -1,40 +1,111 @@
 import { getAdminDb } from '../config/firebase.js';
-import type { OrderInput } from '../types/index.js';
+import type { OrderInput, OrderStatus } from '../types/index.js';
 import { SHIPPING_FEE } from '../types/index.js';
 import { getCached, setCached, invalidateCachePrefix } from '../utils/cache.js';
+import { resolveOrderItems } from '../utils/orderItems.js';
+import { StockInsufficientError } from '../utils/stripePayment.js';
+import {
+  getAdminAllowedStatuses,
+  isAdminCancelWithStockRestore,
+  isAdminOrderTransitionAllowed,
+} from '../utils/adminOrderTransitions.js';
+import type { RefundPendingReason } from '../types/index.js';
 
 const DASHBOARD_CACHE_TTL_MS = 90_000;
+
+const PAID_STATUSES: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
 
 export async function createOrder(
   userId: string,
   userEmail: string,
   userName: string,
-  data: OrderInput
+  data: OrderInput,
 ) {
   const db = getAdminDb();
   const orderRef = db.collection('orders').doc();
 
-  const subtotal = data.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingFee = data.items.length > 0 ? SHIPPING_FEE : 0;
-  const total = subtotal + shippingFee;
+  const items = await resolveOrderItems(data.items);
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingFee = items.length > 0 ? SHIPPING_FEE : 0;
+  const total = Math.round((subtotal + shippingFee) * 100) / 100;
 
-  await db.runTransaction(async (transaction) => {
+  await orderRef.set({
+    userId,
+    userEmail,
+    userName,
+    items,
+    subtotal,
+    shippingFee,
+    total,
+    status: 'pendiente_pago' satisfies OrderStatus,
+    shippingAddress: data.shippingAddress,
+    deliveryMethod: 'domicilio',
+    paymentMethod: null,
+    stripePaymentIntentId: null,
+    paidAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  invalidateCachePrefix('admin:');
+
+  return { id: orderRef.id, subtotal, shippingFee, total, status: 'pendiente_pago' as const };
+}
+
+/** Marca el pedido como pagado y descuenta stock (idempotente). */
+export async function fulfillPaidOrder(
+  orderId: string,
+  paymentIntentId: string,
+  paymentMethod: 'stripe' = 'stripe',
+) {
+  const db = getAdminDb();
+  const orderRef = db.collection('orders').doc(orderId);
+
+  const result = await db.runTransaction(async (transaction) => {
+    const orderSnap = await transaction.get(orderRef);
+    if (!orderSnap.exists) {
+      throw new Error('Pedido no encontrado');
+    }
+
+    const order = orderSnap.data() as {
+      status?: string;
+      stripePaymentIntentId?: string | null;
+      items?: Array<{
+        productId: string;
+        selectedSize: string;
+        quantity: number;
+        name?: string;
+      }>;
+    };
+
+    if (order.status === 'pagado' && order.stripePaymentIntentId === paymentIntentId) {
+      return { id: orderId, status: 'pagado' as const, alreadyFulfilled: true };
+    }
+
+    if (order.status !== 'pendiente_pago') {
+      throw new Error('El pedido no está pendiente de pago');
+    }
+
+    const items = order.items ?? [];
+
     const checks = await Promise.all(
-      data.items.map(async (item) => {
+      items.map(async (item) => {
         const productRef = db.collection('products').doc(item.productId);
         const snap = await transaction.get(productRef);
         return { item, productRef, snap };
-      })
+      }),
     );
 
     for (const { item, snap } of checks) {
       if (!snap.exists) {
-        throw new Error(`Producto ${item.name} no encontrado`);
+        throw new Error(`Producto ${item.name ?? item.productId} no encontrado`);
       }
       const productData = snap.data() as { stock?: Record<string, number> } | undefined;
       const available = productData?.stock?.[item.selectedSize] ?? 0;
       if (available < item.quantity) {
-        throw new Error(`Stock insuficiente para ${item.name} (talla ${item.selectedSize})`);
+        throw new StockInsufficientError(
+          `Stock insuficiente para ${item.name ?? 'producto'} (talla ${item.selectedSize})`,
+        );
       }
     }
 
@@ -46,25 +117,147 @@ export async function createOrder(
       });
     }
 
-    transaction.set(orderRef, {
-      userId,
-      userEmail,
-      userName,
-      items: data.items,
-      subtotal,
-      shippingFee,
-      total,
+    const paidAt = new Date().toISOString();
+    transaction.update(orderRef, {
       status: 'pagado',
-      shippingAddress: data.shippingAddress,
-      deliveryMethod: 'domicilio',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      paymentMethod,
+      stripePaymentIntentId: paymentIntentId,
+      paidAt,
+      updatedAt: paidAt,
     });
+
+    return { id: orderId, status: 'pagado' as const, alreadyFulfilled: false };
+  });
+
+  if (!result.alreadyFulfilled) {
+    invalidateCachePrefix('admin:');
+  }
+
+  return result;
+}
+
+export async function setOrderPaymentIntentId(orderId: string, userId: string, paymentIntentId: string) {
+  const db = getAdminDb();
+  const orderRef = db.collection('orders').doc(orderId);
+  const snap = await orderRef.get();
+
+  if (!snap.exists) return null;
+
+  const data = snap.data();
+  if (!data || data.userId !== userId || data.status !== 'pendiente_pago') {
+    return null;
+  }
+
+  await orderRef.update({
+    stripePaymentIntentId: paymentIntentId,
+    updatedAt: new Date().toISOString(),
+  });
+
+  return { id: orderId, stripePaymentIntentId: paymentIntentId };
+}
+
+export async function markOrderPaymentFailed(orderId: string, paymentIntentId?: string) {
+  const db = getAdminDb();
+  const orderRef = db.collection('orders').doc(orderId);
+  const snap = await orderRef.get();
+
+  if (!snap.exists) return null;
+
+  const data = snap.data();
+  if (!data || data.status !== 'pendiente_pago') return null;
+
+  if (
+    paymentIntentId &&
+    data.stripePaymentIntentId &&
+    data.stripePaymentIntentId !== paymentIntentId
+  ) {
+    return null;
+  }
+
+  await orderRef.update({
+    status: 'pago_fallido',
+    updatedAt: new Date().toISOString(),
+  });
+
+  return { id: orderId, status: 'pago_fallido' as const };
+}
+
+export async function markOrderRefunded(
+  orderId: string,
+  refundId: string,
+  paymentIntentId: string,
+) {
+  const db = getAdminDb();
+  const orderRef = db.collection('orders').doc(orderId);
+  const snap = await orderRef.get();
+
+  if (!snap.exists) return null;
+
+  const data = snap.data();
+  if (!data) return null;
+
+  if (data.status === 'reembolsado') {
+    return { id: orderId, status: 'reembolsado' as const };
+  }
+
+  if (data.status !== 'pendiente_pago' && data.status !== 'cancelado' && data.status !== 'reembolso_pendiente') {
+    return null;
+  }
+
+  const refundedAt = new Date().toISOString();
+  await orderRef.update({
+    status: 'reembolsado',
+    stripeRefundId: refundId,
+    stripePaymentIntentId: paymentIntentId,
+    refundedAt,
+    refundPendingAt: null,
+    refundPendingReason: null,
+    refundLastError: null,
+    updatedAt: refundedAt,
   });
 
   invalidateCachePrefix('admin:');
 
-  return { id: orderRef.id, subtotal, shippingFee, total, status: 'pagado' };
+  return { id: orderId, status: 'reembolsado' as const };
+}
+
+export async function markOrderRefundPending(
+  orderId: string,
+  paymentIntentId: string,
+  reason: RefundPendingReason,
+  lastError?: string,
+) {
+  const db = getAdminDb();
+  const orderRef = db.collection('orders').doc(orderId);
+  const snap = await orderRef.get();
+
+  if (!snap.exists) return null;
+
+  const data = snap.data();
+  if (!data) return null;
+
+  if (data.status === 'reembolsado' || data.stripeRefundId) {
+    return { id: orderId, status: 'reembolsado' as const };
+  }
+
+  const pendingStatuses = ['pendiente_pago', 'cancelado', 'reembolso_pendiente'];
+  if (!pendingStatuses.includes(data.status as string)) {
+    return null;
+  }
+
+  const refundPendingAt = new Date().toISOString();
+  await orderRef.update({
+    status: 'reembolso_pendiente',
+    stripePaymentIntentId: paymentIntentId,
+    refundPendingAt,
+    refundPendingReason: reason,
+    refundLastError: lastError?.slice(0, 500) ?? null,
+    updatedAt: refundPendingAt,
+  });
+
+  invalidateCachePrefix('admin:');
+
+  return { id: orderId, status: 'reembolso_pendiente' as const };
 }
 
 function sortOrdersByCreatedAtDesc<T extends { createdAt?: string }>(orders: T[]): T[] {
@@ -114,6 +307,21 @@ export async function cancelOrder(orderId: string, userId: string) {
     } | undefined;
 
     if (!data || data.userId !== userId) return null;
+
+    if (
+      data.status === 'pendiente_pago' ||
+      data.status === 'pago_fallido' ||
+      data.status === 'reembolsado' ||
+      data.status === 'reembolso_pendiente'
+    ) {
+      const previousStatus = data.status;
+      transaction.update(docRef, {
+        status: 'cancelado',
+        updatedAt: new Date().toISOString(),
+      });
+      return { id: orderId, status: 'cancelado' as const, previousStatus };
+    }
+
     if (data.status !== 'pagado') return null;
 
     const items = data.items ?? [];
@@ -134,11 +342,96 @@ export async function cancelOrder(orderId: string, userId: string) {
       updatedAt: new Date().toISOString(),
     });
 
-    return { id: orderId, status: 'cancelado' as const };
+    return { id: orderId, status: 'cancelado' as const, previousStatus: 'pagado' as const };
   });
+
+  if (result) {
+    invalidateCachePrefix('admin:');
+  }
 
   return result;
 }
+
+export async function cancelOrderAsAdmin(orderId: string) {
+  const db = getAdminDb();
+  const docRef = db.collection('orders').doc(orderId);
+
+  const result = await db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(docRef);
+    if (!doc.exists) return null;
+
+    const data = doc.data() as {
+      status?: string;
+      items?: Array<{ productId: string; selectedSize: string; quantity: number }>;
+    } | undefined;
+
+    if (!data?.status) return null;
+
+    const simpleCancelStatuses = [
+      'pendiente_pago',
+      'pago_fallido',
+      'reembolsado',
+      'reembolso_pendiente',
+    ];
+
+    if (simpleCancelStatuses.includes(data.status)) {
+      const previousStatus = data.status;
+      transaction.update(docRef, {
+        status: 'cancelado',
+        updatedAt: new Date().toISOString(),
+      });
+      return { id: orderId, status: 'cancelado' as const, previousStatus };
+    }
+
+    if (data.status === 'pagado' || data.status === 'enviado') {
+      const items = data.items ?? [];
+      for (const item of items) {
+        const productRef = db.collection('products').doc(item.productId);
+        const snap = await transaction.get(productRef);
+        if (snap.exists) {
+          const productData = snap.data() as { stock?: Record<string, number> } | undefined;
+          const available = productData?.stock?.[item.selectedSize] ?? 0;
+          transaction.update(productRef, {
+            [`stock.${item.selectedSize}`]: available + item.quantity,
+          });
+        }
+      }
+
+      transaction.update(docRef, {
+        status: 'cancelado',
+        updatedAt: new Date().toISOString(),
+      });
+
+      return { id: orderId, status: 'cancelado' as const, previousStatus: data.status };
+    }
+
+    return null;
+  });
+
+  if (result) {
+    invalidateCachePrefix('admin:');
+  }
+
+  return result;
+}
+
+export async function updateOrderStatusAsAdmin(orderId: string, newStatus: OrderStatus) {
+  const existing = await getOrderById(orderId);
+  if (!existing) return null;
+
+  const currentStatus = (existing as { status?: string }).status;
+  if (!isAdminOrderTransitionAllowed(currentStatus, newStatus)) {
+    throw new Error(`Transición no permitida: ${currentStatus ?? 'desconocido'} → ${newStatus}`);
+  }
+
+  if (newStatus === 'cancelado') {
+    return cancelOrderAsAdmin(orderId);
+  }
+
+  return updateOrderStatus(orderId, newStatus);
+}
+
+export { getAdminAllowedStatuses, isAdminCancelWithStockRestore };
 
 export async function getAllOrders(options?: { limit?: number; cursor?: string }) {
   const db = getAdminDb();
@@ -165,6 +458,12 @@ export async function getAllOrders(options?: { limit?: number; cursor?: string }
     nextCursor: snapshot.docs.length === limit && lastDoc ? lastDoc.id : null,
     hasMore: snapshot.docs.length === limit,
   };
+}
+
+export async function getPendingRefundOrders() {
+  const db = getAdminDb();
+  const snapshot = await db.collection('orders').where('status', '==', 'reembolso_pendiente').get();
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {
@@ -203,7 +502,11 @@ async function computeDashboardStats() {
   ]);
 
   const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  const totalRevenue = orders.reduce((sum, o) => sum + ((o as Record<string, unknown>).total as number || 0), 0);
+  const totalRevenue = orders.reduce((sum, o) => {
+    const status = (o as Record<string, unknown>).status as string | undefined;
+    if (!status || !PAID_STATUSES.includes(status as OrderStatus)) return sum;
+    return sum + ((o as Record<string, unknown>).total as number || 0);
+  }, 0);
 
   const recentOrders = [...orders]
     .sort((a, b) => {

@@ -2,7 +2,10 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
 import { getAdminUsersWithStats, getAdminUserDetail } from '../services/authService.js';
-import { getAllOrders, updateOrderStatus, getDashboardStats, getOrderById } from '../services/orderService.js';
+import { getAllOrders, updateOrderStatusAsAdmin, getDashboardStats, getOrderById } from '../services/orderService.js';
+import { releaseStripePaymentForOrder } from '../services/paymentService.js';
+import { isOrderPaymentReleasable } from '../utils/stripePayment.js';
+import type { OrderStatus } from '../types/index.js';
 import { toggleProductActive, getAllProductsAdmin } from '../services/productService.js';
 import { getProtectedAdminEmail } from '../constants/admin.js';
 
@@ -90,11 +93,32 @@ router.put('/orders/:id', authMiddleware, adminMiddleware, async (req, res) => {
       res.status(400).json({ error: 'Estado inválido' });
       return;
     }
-    const result = await updateOrderStatus(req.params.id as string, status);
+
+    const orderId = req.params.id as string;
+    const existing = await getOrderById(orderId);
+    if (!existing) {
+      res.status(404).json({ error: 'Pedido no encontrado' });
+      return;
+    }
+
+    const previousStatus = (existing as { status?: string }).status;
+    let result;
+    try {
+      result = await updateOrderStatusAsAdmin(orderId, status as OrderStatus);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Transición no permitida';
+      res.status(400).json({ error: message });
+      return;
+    }
     if (!result) {
       res.status(404).json({ error: 'Pedido no encontrado' });
       return;
     }
+
+    if (status === 'cancelado' && isOrderPaymentReleasable(previousStatus)) {
+      await releaseStripePaymentForOrder(orderId);
+    }
+
     res.json(result);
   } catch (err) {
     console.error('Error al actualizar pedido:', err);

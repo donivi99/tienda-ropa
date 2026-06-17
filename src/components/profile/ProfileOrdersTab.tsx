@@ -6,7 +6,7 @@ import type { CartItem, ShippingAddress } from '../../types';
 import { formatDateTime, formatEuro, shortOrderId, statusBadgeClass, statusLabel } from '../../utils/orderUi';
 import AddressDisplay from '../shipping/AddressDisplay';
 
-type OrderStatus = 'pagado' | 'enviado' | 'entregado' | 'cancelado';
+type OrderStatus = 'pendiente_pago' | 'pagado' | 'enviado' | 'entregado' | 'cancelado' | 'pago_fallido' | 'reembolsado' | 'reembolso_pendiente';
 
 export interface UserOrder {
   id: string;
@@ -330,7 +330,7 @@ export default function ProfileOrdersTab({
                     </div>
                   </div>
 
-                  {detailOrder.status === 'pagado' && (
+                  {(detailOrder.status === 'pagado' || detailOrder.status === 'pendiente_pago' || detailOrder.status === 'pago_fallido') && (
                     <button
                       type="button"
                       disabled={cancellingId === detailOrder.id}
