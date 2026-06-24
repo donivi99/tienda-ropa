@@ -1,6 +1,6 @@
 ---
 description: Estado del carrito, contextos y lógica transaccional
-globs: src/context/**,src/hooks/**,src/types/**
+globs: frontend/src/context/**,frontend/src/hooks/**,frontend/src/types/**
 alwaysApply: false
 ---
 

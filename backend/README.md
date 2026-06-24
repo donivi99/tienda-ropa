@@ -83,7 +83,7 @@ Checkout con **Stripe Payment Element**. Los pedidos se crean en `pendiente_pago
 
 | En Stripe (Desarrolladores → Claves de API) | Prefijo | Variable | Archivo |
 |---------------------------------------------|---------|----------|---------|
-| **Clave publicable** | `pk_test_...` | `VITE_STRIPE_PUBLISHABLE_KEY` | `.env` (raíz) |
+| **Clave publicable** | `pk_test_...` | `VITE_STRIPE_PUBLISHABLE_KEY` | `frontend/.env` (o `.env` raíz) |
 | **Clave secreta** | `sk_test_...` | `STRIPE_SECRET_KEY` | `backend/.env` |
 | **Clave restringida** | `rk_test_...` | — | **No usar** |
 | **Secreto de webhook** | `whsec_...` | `STRIPE_WEBHOOK_SECRET` | `backend/.env` |
@@ -171,13 +171,13 @@ Segundo método de pago en paralelo a Stripe. El importe siempre sale de `order.
 | Backend | `PAYPAL_CLIENT_SECRET` | `backend/.env` |
 | Backend | `PAYPAL_WEBHOOK_ID` | `backend/.env` (obligatorio en producción) |
 | Backend | `PAYPAL_MODE` | `sandbox` (defecto) o `live` |
-| Frontend | `VITE_PAYPAL_CLIENT_ID` | `.env` (raíz) — solo Client ID público |
+| Frontend | `VITE_PAYPAL_CLIENT_ID` | `frontend/.env` (o `.env` raíz) — solo Client ID público |
 
 Crea una app en [PayPal Developer](https://developer.paypal.com) (Sandbox primero). Registra un webhook apuntando a `https://tudominio.com/api/payments/paypal/webhook` con evento `PAYMENT.CAPTURE.COMPLETED`.
 
 #### Probar en local
 
-1. Rellena credenciales Sandbox en `backend/.env` y `VITE_PAYPAL_CLIENT_ID` en `.env`.
+1. Rellena credenciales Sandbox en `backend/.env` y `VITE_PAYPAL_CLIENT_ID` en `frontend/.env`.
 2. Expón el backend con un túnel (p. ej. ngrok) y registra el webhook Sandbox con la URL pública.
 3. `npm run dev` y en checkout elige **PayPal**.
 4. Inicia sesión con una [cuenta comprador Sandbox](https://developer.paypal.com/tools/sandbox/accounts/).

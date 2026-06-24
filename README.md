@@ -2,20 +2,24 @@
 
 Tienda online de ropa: React (Vite) + Express + Firebase Auth + Firestore.
 
+Monorepo con **npm workspaces**: `frontend/` y `backend/` en la raíz.
+
 ## Quick Start
 
 ### 1. Instalar dependencias
 
+Desde la raíz del proyecto (instala frontend y backend):
+
 ```bash
 npm install
-cd backend && npm install && cd ..
 ```
 
 ### 2. Configurar variables de entorno
 
-**Frontend** — crear `.env` en la raíz:
+**Frontend** — copia `.env.example` de la raíz a `.env` (recomendado en local) o usa `frontend/.env.example` → `frontend/.env`:
 
 ```bash
+# frontend/.env  (o .env en la raíz)
 VITE_FIREBASE_API_KEY=tu_api_key
 VITE_FIREBASE_AUTH_DOMAIN=tu-proyecto.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=tu-proyecto
@@ -57,7 +61,7 @@ STRIPE_SECRET_KEY=sk_test_...
 PAYPAL_MODE=sandbox
 ```
 
-> No subas `.env` ni `backend/.env` al repositorio.
+> No subas `.env`, `frontend/.env` ni `backend/.env` al repositorio.
 
 ### 3. Habilitar Email/Password en Firebase
 
@@ -95,7 +99,7 @@ No hace falta instalar nada extra. Con `pk_test_` y `sk_test_` en tus `.env` bas
 
 1. Activa el **entorno de prueba** en [dashboard.stripe.com](https://dashboard.stripe.com) (banner azul arriba).
 2. Copia las claves en **Desarrolladores → Claves de API**:
-   - **Clave publicable** (`pk_test_...`) → `VITE_STRIPE_PUBLISHABLE_KEY` en `.env`
+   - **Clave publicable** (`pk_test_...`) → `VITE_STRIPE_PUBLISHABLE_KEY` en `frontend/.env` (o `.env` raíz)
    - **Clave secreta** (`sk_test_...`) → `STRIPE_SECRET_KEY` en `backend/.env`
    - No uses la **clave restringida** (`rk_test_...`).
 3. `npm run dev` → inicia sesión → añade producto al carrito → **Finalizar compra**.
@@ -112,7 +116,7 @@ No hace falta instalar nada extra. Con `pk_test_` y `sk_test_` en tus `.env` bas
 
 1. Crea una app en [developer.paypal.com](https://developer.paypal.com) → **Apps & Credentials** → **Sandbox**.
 2. Copia **Client ID** y **Secret**:
-   - `VITE_PAYPAL_CLIENT_ID` en `.env` (raíz)
+   - `VITE_PAYPAL_CLIENT_ID` en `frontend/.env` (o `.env` raíz)
    - `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET` en `backend/.env`
 3. Reinicia `npm run dev` tras cambiar variables `VITE_*`.
 4. En checkout elige **PayPal** e inicia sesión con una [cuenta comprador Sandbox](https://developer.paypal.com/tools/sandbox/accounts/) (no tu email real de PayPal).
@@ -129,28 +133,46 @@ Detalle de claves, webhooks y flujo de seguridad: **[backend/README.md — Pagos
 
 ## Comandos
 
+Todos se ejecutan desde la **raíz** del monorepo:
+
 | Comando | Qué hace |
 |---------|----------|
+| `npm install` | Instala dependencias de `frontend/` y `backend/` (workspaces) |
 | `npm run dev` | Frontend (3001) + backend (3000) |
-| `npm run build` | Build producción |
-| `npm start` | Servidor producción (API + static) |
+| `npm run build` | Build producción de frontend y backend |
+| `npm start` | Servidor producción (API + static desde `frontend/dist`) |
 | `npm test` | Tests frontend + backend |
 | `npm run seed:admin` | Crear admin |
 | `npm run seed:products` | Sembrar catálogo |
 | `npm run migrate:categories` | Normalizar categorías legacy en Firestore |
 | `npm run retry:refunds` | Reintentar reembolsos pendientes (Stripe y PayPal) |
-| `npm run lint` | ESLint |
+| `npm run lint` | ESLint (frontend) |
 
 Scripts adicionales del backend: [backend/README.md](./backend/README.md#scripts-cli).
 
 ## Producción
+
+### Despliegue monolítico (un solo servicio)
 
 ```bash
 npm run build
 npm start
 ```
 
-Express sirve la API y el build de Vite en un solo puerto (3000 por defecto).
+Express sirve la API y el build de Vite (`frontend/dist`) en un solo puerto (3000 por defecto).
+
+### Despliegue separado (recomendado)
+
+| Servicio | Directorio raíz | Build | Start / Output |
+|----------|-----------------|-------|----------------|
+| **Frontend** | `frontend/` | `npm run build` | Output: `frontend/dist` (static site) |
+| **Backend** | `backend/` | `npm run build` | `npm start` → `node dist/index.js` |
+
+En la raíz del monorepo también puedes usar `npm run build` y `npm start` para orquestar ambos.
+
+Variables de entorno en producción:
+- Frontend: todas las `VITE_*` en la plataforma de hosting estática.
+- Backend: `backend/.env` o variables del proveedor (secretos, Firebase Admin, Stripe, PayPal).
 
 ## Stack
 
@@ -166,18 +188,33 @@ Express sirve la API y el build de Vite en un solo puerto (3000 por defecto).
 
 ```
 tienda-ropa/
-├── src/                 # Frontend React
-│   ├── components/
-│   ├── pages/           # Home, Checkout, OrderConfirmation, Profile, admin/
-│   ├── components/checkout/  # StripeCheckoutPayment, PayPalCheckoutPayment (lazy)
-│   ├── context/         # Auth, Cart
-│   └── services/        # api.ts
+├── frontend/            # Cliente React (Vite)
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/       # Home, Checkout, OrderConfirmation, Profile, admin/
+│   │   ├── components/checkout/  # StripeCheckoutPayment, PayPalCheckoutPayment
+│   │   ├── context/     # Auth, Cart
+│   │   ├── types/       # Tipos del cliente
+│   │   └── services/    # api.ts
+│   ├── public/
+│   ├── index.html
+│   ├── vite.config.ts
+│   ├── package.json
+│   └── .env.example     # Variables VITE_*
 ├── backend/             # API Express → ver backend/README.md
-├── shared/types/        # Tipos compartidos
-├── firestore.rules
+│   ├── src/
+│   │   └── types/       # Tipos del servidor
+│   ├── package.json
+│   └── .env.example
+├── package.json         # Orquestador (workspaces + scripts)
+├── .env.example         # Variables VITE_* (raíz; Vite las lee en desarrollo)
 ├── firebase.json
-└── README.md
+├── firestore.rules
+├── README.md
+└── AGENTS.md
 ```
+
+Los tipos TypeScript viven en cada paquete: `frontend/src/types/` (cliente) y `backend/src/types/` (servidor).
 
 ## API (resumen)
 

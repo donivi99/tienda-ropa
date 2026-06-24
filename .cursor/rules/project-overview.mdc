@@ -8,8 +8,8 @@ alwaysApply: true
 Stack: React 19, TypeScript, Tailwind CSS 4, Vite, React Router 7, Express, Firebase Auth + Firestore.
 
 Estructura:
-- `src/` — frontend (components, pages, context, services)
-- `backend/src/` — API Express (routes, services, middleware)
+- `frontend/src/` — frontend (components, pages, context, services, types)
+- `backend/src/` — API Express (routes, services, middleware, types)
 
 Roles: usuario (comprar) y admin (CRUD productos, pedidos, usuarios).
 

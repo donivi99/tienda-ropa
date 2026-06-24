@@ -115,7 +115,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/contact', contactRoutes);
 
 if (process.env.NODE_ENV === 'production') {
-  const frontendDist = path.resolve(__dirname, '../../dist');
+  const frontendDist = path.resolve(__dirname, '../../frontend/dist');
   app.use(express.static(frontendDist));
   app.get('*', (_req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));

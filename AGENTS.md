@@ -8,15 +8,16 @@ Usa el rol adecuado según la tarea:
 
 | Rol | Cuándo usarlo | Ámbito |
 |-----|---------------|--------|
-| **Frontend Designer** | UI, componentes, estilos, a11y, SEO | `src/**/*.tsx` |
-| **Cart State** | Carrito, contextos, hooks, tipos | `src/context/`, `src/hooks/`, `src/types/` |
+| **Frontend Designer** | UI, componentes, estilos, a11y, SEO | `frontend/src/**/*.tsx` |
+| **Cart State** | Carrito, contextos, hooks, tipos | `frontend/src/context/`, `frontend/src/hooks/`, `frontend/src/types/` |
 | **Backend Integration** | API, Firebase, servicios | `backend/src/**` |
 | **Security Audit** | Revisión de seguridad (solo lectura) | Todo el repo |
 
 ## Comandos del proyecto
 
+- `npm install` — instala dependencias de frontend y backend (npm workspaces)
 - `npm run dev` — frontend (3001) + backend (3000)
-- `npm run build` — build producción
+- `npm run build` — build producción (frontend + backend)
 - `npm run seed:admin` — crear admin
 - `npm run seed:products` — sembrar catálogo (backend, Admin SDK)
 
@@ -27,7 +28,7 @@ Usa el rol adecuado según la tarea:
 
 ## Reglas críticas
 
-- Nunca commitear `.env` ni `backend/.env`
+- Nunca commitear `.env`, `frontend/.env` ni `backend/.env`
 - Variables frontend: `import.meta.env.VITE_*`
 - Paleta: negro `#0a0a0a`, dorado `#d4af37`, crema `#f5e6c8`
 - Tipografía: Fraunces (headings y body)

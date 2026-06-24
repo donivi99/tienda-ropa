@@ -1,6 +1,6 @@
 ---
 description: UI/UX — Tailwind, React, accesibilidad y SEO
-globs: src/**/*.tsx
+globs: frontend/src/**/*.tsx
 alwaysApply: false
 ---
 
