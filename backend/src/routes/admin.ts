@@ -3,8 +3,8 @@ import { authMiddleware } from '../middleware/auth.js';
 import { adminMiddleware } from '../middleware/admin.js';
 import { getAdminUsersWithStats, getAdminUserDetail } from '../services/authService.js';
 import { getAllOrders, updateOrderStatusAsAdmin, getDashboardStats, getOrderById } from '../services/orderService.js';
-import { releaseStripePaymentForOrder } from '../services/paymentService.js';
-import { isOrderPaymentReleasable } from '../utils/stripePayment.js';
+import { releasePaymentForOrder } from '../services/paymentService.js';
+import { isOrderPaymentReleasable } from '../utils/paymentOrder.js';
 import type { OrderStatus } from '../types/index.js';
 import { toggleProductActive, getAllProductsAdmin } from '../services/productService.js';
 import { getProtectedAdminEmail } from '../constants/admin.js';
@@ -116,7 +116,7 @@ router.put('/orders/:id', authMiddleware, adminMiddleware, async (req, res) => {
     }
 
     if (status === 'cancelado' && isOrderPaymentReleasable(previousStatus)) {
-      await releaseStripePaymentForOrder(orderId);
+      await releasePaymentForOrder(orderId);
     }
 
     res.json(result);

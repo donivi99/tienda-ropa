@@ -14,7 +14,7 @@ export interface OrderQuantitySummary {
   appliedTotal: number;
 }
 
-export interface PreparePaymentResponse {
+export interface SyncPaymentResponse {
   order: {
     id: string;
     items: CartItem[];
@@ -25,6 +25,10 @@ export interface PreparePaymentResponse {
   };
   adjustments: StockAdjustment[];
   quantitySummary?: OrderQuantitySummary;
+}
+
+/** @deprecated Usar SyncPaymentResponse + endpoints por proveedor */
+export interface PreparePaymentResponse extends SyncPaymentResponse {
   clientSecret: string;
   paymentIntentId: string;
 }

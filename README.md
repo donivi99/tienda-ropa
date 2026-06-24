@@ -26,6 +26,9 @@ VITE_API_URL=http://localhost:3000
 
 # Stripe — Clave publicable (modo test: dashboard.stripe.com/test/apikeys)
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# PayPal — Client ID público Sandbox (developer.paypal.com → Apps & Credentials)
+# VITE_PAYPAL_CLIENT_ID=
 ```
 
 **Backend** — ver [backend/README.md](./backend/README.md#configuración) para `backend/.env` (Firebase Admin + seeds).
@@ -46,6 +49,12 @@ ADMIN_SEED_NAME=Administrador
 # Stripe (backend) — ver backend/README.md#stripe-pagos-con-tarjeta
 STRIPE_SECRET_KEY=sk_test_...
 # STRIPE_WEBHOOK_SECRET=whsec_...   # opcional en local; obligatorio en producción
+
+# PayPal (backend) — ver backend/README.md#paypal-checkout-orders-api-v2
+# PAYPAL_CLIENT_ID=
+# PAYPAL_CLIENT_SECRET=
+# PAYPAL_WEBHOOK_ID=              # opcional en local; obligatorio en producción
+PAYPAL_MODE=sandbox
 ```
 
 > No subas `.env` ni `backend/.env` al repositorio.
@@ -78,7 +87,9 @@ firebase deploy --only firestore:rules
 
 Las reglas están en `firestore.rules` (lectura pública de productos; escrituras solo backend).
 
-### 7. Probar pagos con Stripe (modo test)
+### 7. Probar pagos (Stripe y PayPal)
+
+#### Tarjeta (Stripe)
 
 No hace falta instalar nada extra. Con `pk_test_` y `sk_test_` en tus `.env` basta.
 
@@ -88,7 +99,7 @@ No hace falta instalar nada extra. Con `pk_test_` y `sk_test_` en tus `.env` bas
    - **Clave secreta** (`sk_test_...`) → `STRIPE_SECRET_KEY` en `backend/.env`
    - No uses la **clave restringida** (`rk_test_...`).
 3. `npm run dev` → inicia sesión → añade producto al carrito → **Finalizar compra**.
-4. Completa dirección → **Continuar al pago** → paga con tarjeta de prueba:
+4. Completa dirección → **Continuar al pago** → elige **Tarjeta** → paga con tarjeta de prueba:
 
 | Escenario | Número | Fecha | CVC |
 |-----------|--------|-------|-----|
@@ -97,9 +108,24 @@ No hace falta instalar nada extra. Con `pk_test_` y `sk_test_` en tus `.env` bas
 
 5. Comprueba que el pedido queda **pagado** en Mi cuenta → Pedidos y que el pago aparece en [Stripe → Payments (test)](https://dashboard.stripe.com/test/payments).
 
-En producción, configura también `STRIPE_WEBHOOK_SECRET` (el backend no arranca sin ella). Ver checklist completo en backend/README.md.
+#### PayPal (Sandbox)
 
-Detalle de claves, webhook (`whsec_`) y flujo de seguridad: **[backend/README.md — Stripe](./backend/README.md#stripe-pagos-con-tarjeta)**.
+1. Crea una app en [developer.paypal.com](https://developer.paypal.com) → **Apps & Credentials** → **Sandbox**.
+2. Copia **Client ID** y **Secret**:
+   - `VITE_PAYPAL_CLIENT_ID` en `.env` (raíz)
+   - `PAYPAL_CLIENT_ID` y `PAYPAL_CLIENT_SECRET` en `backend/.env`
+3. Reinicia `npm run dev` tras cambiar variables `VITE_*`.
+4. En checkout elige **PayPal** e inicia sesión con una [cuenta comprador Sandbox](https://developer.paypal.com/tools/sandbox/accounts/) (no tu email real de PayPal).
+
+Sin webhook en local el pedido puede quedar **pagado** tras la captura o desde la página de confirmación (`/pedido-confirmado`). En producción configura también `PAYPAL_WEBHOOK_ID`.
+
+#### Reanudar pago pendiente
+
+En **Mi cuenta → Pedidos**, un pedido `pendiente_pago` muestra **Realizar pago**. Abre el checkout en modo completar pago (`/checkout?orderId=...`), sincroniza stock en servidor y permite elegir **Tarjeta** o **PayPal**.
+
+En producción, configura webhooks de Stripe y PayPal (el backend no arranca sin ellos si los pagos están activos). Ver checklist completo en [backend/README.md](./backend/README.md).
+
+Detalle de claves, webhooks y flujo de seguridad: **[backend/README.md — Pagos](./backend/README.md#stripe-pagos-con-tarjeta)**.
 
 ## Comandos
 
@@ -112,6 +138,7 @@ Detalle de claves, webhook (`whsec_`) y flujo de seguridad: **[backend/README.md
 | `npm run seed:admin` | Crear admin |
 | `npm run seed:products` | Sembrar catálogo |
 | `npm run migrate:categories` | Normalizar categorías legacy en Firestore |
+| `npm run retry:refunds` | Reintentar reembolsos pendientes (Stripe y PayPal) |
 | `npm run lint` | ESLint |
 
 Scripts adicionales del backend: [backend/README.md](./backend/README.md#scripts-cli).
@@ -130,6 +157,7 @@ Express sirve la API y el build de Vite en un solo puerto (3000 por defecto).
 | Parte | Tecnología |
 |-------|------------|
 | Frontend | React 19, TypeScript, Tailwind 4, Vite, React Router |
+| Pagos | Stripe (tarjeta) + PayPal Checkout (Orders API v2) |
 | Backend | Node.js, Express, TypeScript — [detalle](./backend/README.md) |
 | Auth | Firebase Auth |
 | Datos | Firestore (catálogo también leído desde cliente con reglas estrictas) |
@@ -140,7 +168,8 @@ Express sirve la API y el build de Vite en un solo puerto (3000 por defecto).
 tienda-ropa/
 ├── src/                 # Frontend React
 │   ├── components/
-│   ├── pages/           # Home, Checkout, Profile, admin/
+│   ├── pages/           # Home, Checkout, OrderConfirmation, Profile, admin/
+│   ├── components/checkout/  # StripeCheckoutPayment, PayPalCheckoutPayment (lazy)
 │   ├── context/         # Auth, Cart
 │   └── services/        # api.ts
 ├── backend/             # API Express → ver backend/README.md
@@ -156,8 +185,8 @@ tienda-ropa/
 |---------|-----|
 | `/api/auth` | Login, registro, perfil |
 | `/api/products` | Catálogo (público activos; CRUD admin) |
-| `/api/orders` | Pedidos del usuario |
-| `/api/payments` | Stripe: Payment Intent y confirmación |
+| `/api/orders` | Pedidos del usuario (crear, cancelar, preparar pago pendiente) |
+| `/api/payments` | Stripe y PayPal: crear sesión, confirmar/capturar, webhooks |
 | `/api/admin` | Dashboard, usuarios, pedidos, productos |
 | `/api/contact` | Mensajes de contacto |
 

@@ -5,8 +5,8 @@ import {
   getOrderById,
   cancelOrder,
 } from '../services/orderService.js';
-import { prepareOrderPayment, releaseStripePaymentForOrder } from '../services/paymentService.js';
-import { isOrderPaymentReleasable } from '../utils/stripePayment.js';
+import { syncOrderPayment, releasePaymentForOrder } from '../services/paymentService.js';
+import { isOrderPaymentReleasable } from '../utils/paymentOrder.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { validate, validateOrder } from '../middleware/validate.js';
 import type { AuthRequest } from '../types/index.js';
@@ -45,7 +45,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
 router.post('/:id/prepare-payment', authMiddleware, async (req: AuthRequest, res) => {
   try {
     const orderId = req.params.id as string;
-    const result = await prepareOrderPayment(orderId, req.user!.uid);
+    const result = await syncOrderPayment(orderId, req.user!.uid);
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error al preparar el pago';
@@ -54,9 +54,7 @@ router.post('/:id/prepare-payment', authMiddleware, async (req: AuthRequest, res
       message === 'El pedido no está pendiente de pago' ||
       message.includes('stock disponible')
         ? 400
-        : message === 'Pagos con tarjeta no configurados'
-          ? 503
-          : 400;
+        : 400;
     res.status(status).json({ error: message });
   }
 });
@@ -83,7 +81,7 @@ router.put('/:id/cancel', authMiddleware, async (req: AuthRequest, res) => {
       return;
     }
     if (isOrderPaymentReleasable(result.previousStatus)) {
-      await releaseStripePaymentForOrder(orderId);
+      await releasePaymentForOrder(orderId);
     }
     res.json({ id: result.id, status: result.status });
   } catch {

@@ -14,6 +14,7 @@ export interface OrderReceiptData {
   paidAt?: string | null;
   paymentMethod?: string | null;
   stripePaymentIntentId?: string | null;
+  paypalCaptureId?: string | null;
   userEmail?: string;
   userName?: string;
 }
@@ -25,14 +26,15 @@ interface OrderReceiptProps {
 
 function paymentMethodLabel(method?: string | null): string {
   if (method === 'stripe') return 'Tarjeta (Stripe)';
+  if (method === 'paypal') return 'PayPal';
   if (!method) return '—';
   return method;
 }
 
-function paymentReference(paymentIntentId?: string | null): string {
-  if (!paymentIntentId) return '—';
-  if (paymentIntentId.length <= 12) return paymentIntentId;
-  return `…${paymentIntentId.slice(-12)}`;
+function paymentReference(referenceId?: string | null): string {
+  if (!referenceId) return '—';
+  if (referenceId.length <= 12) return referenceId;
+  return `…${referenceId.slice(-12)}`;
 }
 
 export default function OrderReceipt({ order, onClose }: OrderReceiptProps) {
@@ -211,7 +213,13 @@ export default function OrderReceipt({ order, onClose }: OrderReceiptProps) {
               </div>
               <div className="mt-1 flex justify-between gap-4">
                 <span className="text-[#5c5348]">Referencia</span>
-                <span className="font-mono text-xs">{paymentReference(order.stripePaymentIntentId)}</span>
+                <span className="font-mono text-xs">
+                  {paymentReference(
+                    order.paymentMethod === 'paypal'
+                      ? order.paypalCaptureId
+                      : order.stripePaymentIntentId,
+                  )}
+                </span>
               </div>
             </section>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +6,6 @@ import { SHIPPING_FEE, type CartItem, type ShippingAddress } from '../types';
 import { api } from '../services/api';
 import { PROFILE_ROUTES } from '../constants/profileRoutes';
 import AddressFields from '../components/shipping/AddressFields';
-import StripeCheckoutPayment from '../components/checkout/StripeCheckoutPayment';
 import {
   EMPTY_SHIPPING_ADDRESS,
   isProfileShippingIncomplete,
@@ -19,9 +18,25 @@ import {
 import {
   hasStockQuantityChanges,
   type OrderQuantitySummary,
-  type PreparePaymentResponse,
   type StockAdjustment,
+  type SyncPaymentResponse,
 } from '../utils/stockAdjustments';
+
+const StripeCheckoutPayment = lazy(() => import('../components/checkout/StripeCheckoutPayment'));
+const PayPalCheckoutPayment = lazy(() => import('../components/checkout/PayPalCheckoutPayment'));
+
+const stripeConfigured = Boolean(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.trim());
+const paypalConfigured = Boolean(import.meta.env.VITE_PAYPAL_CLIENT_ID?.trim());
+
+type PaymentMethodChoice = 'stripe' | 'paypal';
+
+function PaymentLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center py-6">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#2a2520] border-t-[#d4af37]" />
+    </div>
+  );
+}
 
 function IncompleteProfileBanner() {
   return (
@@ -45,6 +60,10 @@ interface CreatedOrder {
 interface PaymentIntentResponse {
   clientSecret: string;
   paymentIntentId: string;
+}
+
+interface PayPalOrderResponse {
+  paypalOrderId: string;
 }
 
 function StockAdjustmentsBanner({
@@ -127,30 +146,41 @@ export default function Checkout() {
     profile ? profileToShippingAddress(profile) : { ...EMPTY_SHIPPING_ADDRESS },
   );
   const [loading, setLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(Boolean(resumeOrderId));
   const [error, setError] = useState('');
   const [step, setStep] = useState<'method' | 'address' | 'payment'>(
     resumeOrderId ? 'payment' : deliveryMethod ? 'address' : 'method',
   );
   const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodChoice | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null);
   const [resumeOrder, setResumeOrder] = useState<ResumeOrder | null>(null);
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
   const [quantitySummary, setQuantitySummary] = useState<OrderQuantitySummary | undefined>();
+  const [orderSynced, setOrderSynced] = useState(false);
 
   const profileIncomplete = isProfileShippingIncomplete(profile);
   const isResumeMode = Boolean(resumeOrderId);
 
-  const applyPreparedPayment = (result: PreparePaymentResponse) => {
+  const applySyncedOrder = (result: SyncPaymentResponse) => {
     setResumeOrder(result.order);
     setStockAdjustments(result.adjustments ?? []);
     setQuantitySummary(result.quantitySummary);
     setCreatedOrder({ id: result.order.id, total: result.order.total });
-    setClientSecret(result.clientSecret);
     if (result.order.shippingAddress) {
       setAddress(result.order.shippingAddress);
     }
+    setOrderSynced(true);
     setStep('payment');
+  };
+
+  const resetPaymentSession = () => {
+    setClientSecret(null);
+    setPaypalOrderId(null);
+    setPaymentMethod(null);
+    setError('');
   };
 
   useEffect(() => {
@@ -163,19 +193,19 @@ export default function Checkout() {
 
     let cancelled = false;
 
-    const prepareResumePayment = async () => {
+    const syncResumeOrder = async () => {
       setResumeLoading(true);
       setError('');
 
       try {
-        const result = await api.post<PreparePaymentResponse>(
+        const result = await api.post<SyncPaymentResponse>(
           `/api/orders/${encodeURIComponent(resumeOrderId)}/prepare-payment`,
           {},
         );
 
         if (cancelled) return;
 
-        applyPreparedPayment(result);
+        applySyncedOrder(result);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Error al preparar el pago del pedido');
@@ -188,12 +218,48 @@ export default function Checkout() {
       }
     };
 
-    void prepareResumePayment();
+    void syncResumeOrder();
 
     return () => {
       cancelled = true;
     };
   }, [resumeOrderId]);
+
+  const startPaymentForMethod = async (method: PaymentMethodChoice) => {
+    if (!createdOrder) return;
+
+    setPaymentLoading(true);
+    setError('');
+    setPaymentMethod(method);
+    setClientSecret(null);
+    setPaypalOrderId(null);
+
+    try {
+      if (method === 'stripe') {
+        const payment = await api.post<PaymentIntentResponse>('/api/payments/stripe/create-intent', {
+          orderId: createdOrder.id,
+        });
+        setClientSecret(payment.clientSecret);
+      } else {
+        const payment = await api.post<PayPalOrderResponse & SyncPaymentResponse>(
+          '/api/payments/paypal/create-order',
+          { orderId: createdOrder.id },
+        );
+        setPaypalOrderId(payment.paypalOrderId);
+        if (payment.adjustments) {
+          setStockAdjustments(payment.adjustments);
+        }
+        if (payment.quantitySummary) {
+          setQuantitySummary(payment.quantitySummary);
+        }
+      }
+    } catch (err) {
+      setPaymentMethod(null);
+      setError(err instanceof Error ? err.message : 'Error al iniciar el pago');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   const handleSelectMethod = () => {
     setDeliveryMethod('domicilio');
@@ -220,6 +286,7 @@ export default function Checkout() {
 
     setLoading(true);
     setError('');
+    resetPaymentSession();
 
     const fullAddress = normalizeShippingAddress(address);
     setShippingAddress(fullAddress);
@@ -237,12 +304,8 @@ export default function Checkout() {
         deliveryMethod: 'domicilio',
       });
 
-      const payment = await api.post<PaymentIntentResponse>('/api/payments/stripe/create-intent', {
-        orderId: order.id,
-      });
-
       setCreatedOrder({ id: order.id, total: order.total ?? totalFinal });
-      setClientSecret(payment.clientSecret);
+      setOrderSynced(true);
       setStep('payment');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al preparar el pago');
@@ -293,6 +356,10 @@ export default function Checkout() {
       : deliveryMethod
         ? totalFinal
         : subtotal);
+
+  const availablePaymentMethods: PaymentMethodChoice[] = [];
+  if (stripeConfigured) availablePaymentMethods.push('stripe');
+  if (paypalConfigured) availablePaymentMethods.push('paypal');
 
   if (!isResumeMode && items.length === 0 && step !== 'payment') {
     return (
@@ -439,7 +506,7 @@ export default function Checkout() {
             disabled={loading}
             className="w-full bg-[#d4af37] text-[#0a0a0a] py-3 rounded-lg font-bold hover:bg-[#b8962e] disabled:opacity-50 transition-colors uppercase tracking-wider"
           >
-            {loading ? 'Preparando pago...' : 'Continuar al pago'}
+            {loading ? 'Creando pedido...' : 'Continuar al pago'}
           </button>
         </form>
       )}
@@ -449,7 +516,10 @@ export default function Checkout() {
           {!isResumeMode && (
             <button
               type="button"
-              onClick={() => setStep('address')}
+              onClick={() => {
+                resetPaymentSession();
+                setStep('address');
+              }}
               className="text-sm text-[#a89a82] hover:text-[#d4af37] transition-colors"
             >
               ← Volver a dirección de envío
@@ -465,7 +535,7 @@ export default function Checkout() {
             </Link>
           )}
 
-          {error && !clientSecret && (
+          {error && !clientSecret && !paypalOrderId && (
             <div className="space-y-3">
               <p className="text-red-400 text-sm">{error}</p>
               <Link
@@ -477,18 +547,87 @@ export default function Checkout() {
             </div>
           )}
 
-          {createdOrder && clientSecret && (
+          {createdOrder && orderSynced && availablePaymentMethods.length === 0 && (
+            <p className="text-sm text-red-400">
+              No hay métodos de pago configurados. Contacta con la tienda.
+            </p>
+          )}
+
+          {createdOrder && orderSynced && availablePaymentMethods.length > 0 && (
             <>
-              <h3 className="text-lg font-semibold text-[#f5e6c8]">Pago con tarjeta</h3>
+              <h3 className="text-lg font-semibold text-[#f5e6c8]">Método de pago</h3>
 
-              {error && <p className="text-red-400 text-sm">{error}</p>}
+              <div className="grid grid-cols-2 gap-3">
+                {stripeConfigured ? (
+                  <button
+                    type="button"
+                    disabled={paymentLoading}
+                    onClick={() => void startPaymentForMethod('stripe')}
+                    className={`col-start-1 rounded-lg border p-4 text-left transition-colors ${
+                      paymentMethod === 'stripe'
+                        ? 'border-[#d4af37] bg-[#d4af37]/10'
+                        : 'border-[#2a2520] bg-[#1e1b18] hover:border-[#d4af37]/60'
+                    }`}
+                  >
+                    <p className="font-medium text-[#f5e6c8]">Tarjeta</p>
+                    <p className="text-xs text-[#a89a82]">Visa, Mastercard, etc.</p>
+                  </button>
+                ) : (
+                  <div
+                    className="col-start-1 rounded-lg border border-[#2a2520] bg-[#1e1b18]/50 p-4 opacity-50"
+                    aria-hidden
+                  >
+                    <p className="font-medium text-[#f5e6c8]">Tarjeta</p>
+                    <p className="text-xs text-[#a89a82]">No disponible</p>
+                  </div>
+                )}
 
-              <StripeCheckoutPayment
-                clientSecret={clientSecret}
-                orderId={createdOrder.id}
-                onSuccess={handlePaymentSuccess}
-                onError={setError}
-              />
+                <button
+                  type="button"
+                  disabled={paymentLoading || !paypalConfigured}
+                  onClick={() => void startPaymentForMethod('paypal')}
+                  className={`col-start-2 rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    paymentMethod === 'paypal'
+                      ? 'border-[#d4af37] bg-[#d4af37]/10'
+                      : 'border-[#2a2520] bg-[#1e1b18] hover:border-[#d4af37]/60'
+                  }`}
+                >
+                  <p className="font-medium text-[#f5e6c8]">PayPal</p>
+                  <p className="text-xs text-[#a89a82]">
+                    {paypalConfigured
+                      ? 'Cuenta PayPal o tarjeta vía PayPal'
+                      : 'No disponible'}
+                  </p>
+                </button>
+              </div>
+
+              {paymentLoading && <PaymentLoadingFallback />}
+
+              {error && (clientSecret || paypalOrderId || paymentMethod) && (
+                <p className="text-red-400 text-sm">{error}</p>
+              )}
+
+              {paymentMethod === 'stripe' && clientSecret && (
+                <Suspense fallback={<PaymentLoadingFallback />}>
+                  <StripeCheckoutPayment
+                    clientSecret={clientSecret}
+                    orderId={createdOrder.id}
+                    onSuccess={handlePaymentSuccess}
+                    onError={setError}
+                  />
+                </Suspense>
+              )}
+
+              {paymentMethod === 'paypal' && paypalOrderId && (
+                <Suspense fallback={<PaymentLoadingFallback />}>
+                  <PayPalCheckoutPayment
+                    orderId={createdOrder.id}
+                    paypalOrderId={paypalOrderId}
+                    onSuccess={handlePaymentSuccess}
+                    onError={setError}
+                  />
+                </Suspense>
+              )}
             </>
           )}
         </div>

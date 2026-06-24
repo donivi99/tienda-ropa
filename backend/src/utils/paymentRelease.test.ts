@@ -2,11 +2,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type Stripe from 'stripe';
 import {
-  getStripePaymentReleaseAction,
   isOrderPaymentReleasable,
   PaymentValidationError,
-  validatePaymentIntentIdentity,
   type OrderPaymentRecord,
+} from './paymentOrder.js';
+import {
+  getStripePaymentReleaseAction,
+  validatePaymentIntentIdentity,
 } from './stripePayment.js';
 
 describe('isOrderPaymentReleasable', () => {

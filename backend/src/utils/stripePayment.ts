@@ -1,21 +1,15 @@
 import type Stripe from 'stripe';
 import { eurosToStripeCents } from './pricing.js';
+import {
+  PaymentValidationError,
+  type OrderPaymentRecord,
+} from './paymentOrder.js';
 
-export interface OrderPaymentRecord {
-  id: string;
-  status?: string;
-  total?: number;
-  stripePaymentIntentId?: string | null;
-  userId?: string;
-  stripeRefundId?: string | null;
-}
-
-export class PaymentValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'PaymentValidationError';
-  }
-}
+export {
+  PaymentValidationError,
+  isOrderPaymentReleasable,
+  type OrderPaymentRecord,
+} from './paymentOrder.js';
 
 export class StockInsufficientError extends Error {
   constructor(message: string) {
@@ -26,18 +20,6 @@ export class StockInsufficientError extends Error {
 
 export function isStockInsufficientError(err: unknown): boolean {
   return err instanceof StockInsufficientError;
-}
-
-const PAYMENT_RELEASABLE_STATUSES = new Set([
-  'pendiente_pago',
-  'pago_fallido',
-  'reembolsado',
-  'reembolso_pendiente',
-]);
-
-/** Estados previos a cancelar en los que conviene invalidar el PI en Stripe. */
-export function isOrderPaymentReleasable(status: string | undefined): boolean {
-  return Boolean(status && PAYMENT_RELEASABLE_STATUSES.has(status));
 }
 
 /** Acción Stripe al liberar un PI según su estado actual. */

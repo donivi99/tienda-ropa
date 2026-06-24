@@ -24,6 +24,7 @@ export interface UserOrder {
   paidAt?: string | null;
   paymentMethod?: string | null;
   stripePaymentIntentId?: string | null;
+  paypalCaptureId?: string | null;
   userEmail?: string;
   userName?: string;
 }

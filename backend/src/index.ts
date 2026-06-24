@@ -10,7 +10,9 @@ import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
 import adminRoutes from './routes/admin.js';
 import contactRoutes from './routes/contact.js';
-import paymentRoutes, { stripeWebhookHandler } from './routes/payments.js';
+import paymentRoutes, { paypalWebhookHandler, stripeWebhookHandler } from './routes/payments.js';
+import { validatePayPalWebhookHeaders } from './middleware/validatePayment.js';
+import { isPayPalConfigured } from './services/paypalService.js';
 import { isStripeConfigured } from './services/paymentService.js';
 
 if (
@@ -19,6 +21,14 @@ if (
   !process.env.STRIPE_WEBHOOK_SECRET?.trim()
 ) {
   throw new Error('STRIPE_WEBHOOK_SECRET es obligatorio en producción cuando Stripe está configurado');
+}
+
+if (
+  process.env.NODE_ENV === 'production' &&
+  isPayPalConfigured() &&
+  !process.env.PAYPAL_WEBHOOK_ID?.trim()
+) {
+  throw new Error('PAYPAL_WEBHOOK_ID es obligatorio en producción cuando PayPal está configurado');
 }
 
 const app = express();
@@ -30,15 +40,34 @@ const stripeConnectSrc = [
   'https://*.stripe.com',
 ];
 
+const paypalConnectSrc = [
+  'https://www.paypal.com',
+  'https://www.sandbox.paypal.com',
+  'https://api-m.paypal.com',
+  'https://api-m.sandbox.paypal.com',
+];
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://js.stripe.com'],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        'https://js.stripe.com',
+        'https://www.paypal.com',
+        'https://www.sandbox.paypal.com',
+      ],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'https:', 'data:'],
-      frameSrc: ["'self'", 'https://js.stripe.com', 'https://hooks.stripe.com'],
+      frameSrc: [
+        "'self'",
+        'https://js.stripe.com',
+        'https://hooks.stripe.com',
+        'https://www.paypal.com',
+        'https://www.sandbox.paypal.com',
+      ],
       connectSrc: [
         "'self'",
         'https://*.googleapis.com',
@@ -50,17 +79,25 @@ app.use(helmet({
         'https://res.cloudinary.com',
         'https://images.unsplash.com',
         ...stripeConnectSrc,
+        ...paypalConnectSrc,
       ],
     },
   },
 }));
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3001', credentials: true }));
 
-// Webhook Stripe: cuerpo raw para verificar firma (antes de express.json)
+// Webhooks: cuerpo raw para verificar firma (antes de express.json)
 app.post(
   '/api/payments/stripe/webhook',
   express.raw({ type: 'application/json' }),
   stripeWebhookHandler,
+);
+
+app.post(
+  '/api/payments/paypal/webhook',
+  express.raw({ type: 'application/json' }),
+  validatePayPalWebhookHeaders,
+  paypalWebhookHandler,
 );
 
 app.use(express.json());

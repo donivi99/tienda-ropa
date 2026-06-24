@@ -10,14 +10,14 @@ import {
   setOrderPaymentIntentId,
 } from './orderService.js';
 import { eurosToStripeCents } from '../utils/pricing.js';
+import { type OrderPaymentRecord, PaymentValidationError } from '../utils/paymentOrder.js';
 import {
   assertPaymentIntentMatchesOrder,
   isStockInsufficientError,
   getStripePaymentReleaseAction,
-  type OrderPaymentRecord,
-  PaymentValidationError,
   validatePaymentIntentIdentity,
 } from '../utils/stripePayment.js';
+import { releasePayPalPaymentForOrder, retryPayPalRefundForOrder, isPayPalConfigured } from './paypalService.js';
 import type { RefundPendingReason } from '../types/index.js';
 
 const REFUND_PENDING_USER_MESSAGE =
@@ -158,11 +158,13 @@ async function cancelReusablePaymentIntentIfNeeded(paymentIntentId: string): Pro
 }
 
 export async function createStripePaymentIntent(orderId: string, userId: string) {
-  const raw = await getOrderById(orderId, userId);
-  if (!raw) {
-    throw new Error('Pedido no encontrado');
+  const prepared = await preparePendingOrderPayment(orderId, userId);
+
+  if (prepared.previousPaymentIntentId) {
+    await cancelReusablePaymentIntentIfNeeded(prepared.previousPaymentIntentId);
   }
-  const order = asOrderPaymentRecord(raw);
+
+  const order = asOrderPaymentRecord(prepared.order as { id: string } & Record<string, unknown>);
 
   const status = order.status;
   if (status !== 'pendiente_pago') {
@@ -230,26 +232,38 @@ export async function createStripePaymentIntent(orderId: string, userId: string)
   return {
     clientSecret: paymentIntent.client_secret,
     paymentIntentId: paymentIntent.id,
+    order: prepared.order,
+    adjustments: prepared.adjustments,
+    quantitySummary: prepared.quantitySummary,
   };
 }
 
-export async function prepareOrderPayment(orderId: string, userId: string) {
-  if (!isStripeConfigured()) {
-    throw new Error('Pagos con tarjeta no configurados');
-  }
-
+/** Sincroniza stock/precios de un pedido pendiente sin crear sesión de pago. */
+export async function syncOrderPayment(orderId: string, userId: string) {
   const prepared = await preparePendingOrderPayment(orderId, userId);
 
   if (prepared.previousPaymentIntentId) {
     await cancelReusablePaymentIntentIfNeeded(prepared.previousPaymentIntentId);
   }
 
-  const payment = await createStripePaymentIntent(orderId, userId);
-
   return {
     order: prepared.order,
     adjustments: prepared.adjustments,
     quantitySummary: prepared.quantitySummary,
+  };
+}
+
+/** @deprecated Usar syncOrderPayment + createStripePaymentIntent */
+export async function prepareOrderPayment(orderId: string, userId: string) {
+  if (!isStripeConfigured()) {
+    throw new Error('Pagos con tarjeta no configurados');
+  }
+
+  const synced = await syncOrderPayment(orderId, userId);
+  const payment = await createStripePaymentIntent(orderId, userId);
+
+  return {
+    ...synced,
     clientSecret: payment.clientSecret,
     paymentIntentId: payment.paymentIntentId,
   };
@@ -448,7 +462,7 @@ export async function retryPendingRefunds(): Promise<{
   resolved: number;
   failed: number;
 }> {
-  if (!isStripeConfigured()) {
+  if (!isStripeConfigured() && !isPayPalConfigured()) {
     return { processed: 0, resolved: 0, failed: 0 };
   }
 
@@ -458,6 +472,21 @@ export async function retryPendingRefunds(): Promise<{
 
   for (const row of pending) {
     const order = asOrderPaymentRecord(row as { id: string } & Record<string, unknown>);
+    const isPayPal =
+      order.paymentMethod === 'paypal' || order.paypalCaptureId || order.paypalOrderId;
+
+    if (isPayPal) {
+      const outcome = await retryPayPalRefundForOrder(order.id);
+      if (outcome === 'refunded') {
+        resolved += 1;
+      } else if (outcome === 'pending') {
+        failed += 1;
+      } else {
+        failed += 1;
+      }
+      continue;
+    }
+
     const paymentIntentId = order.stripePaymentIntentId;
     if (!paymentIntentId) {
       failed += 1;
@@ -476,4 +505,23 @@ export async function retryPendingRefunds(): Promise<{
   }
 
   return { processed: pending.length, resolved, failed };
+}
+
+/** Libera el pago según el proveedor del pedido (Stripe o PayPal). */
+export async function releasePaymentForOrder(orderId: string): Promise<void> {
+  const raw = await getOrderById(orderId);
+  if (!raw) return;
+
+  const order = asOrderPaymentRecord(raw);
+  const isPayPal =
+    order.paymentMethod === 'paypal' || order.paypalOrderId || order.paypalCaptureId;
+
+  if (isPayPal) {
+    await releasePayPalPaymentForOrder(orderId);
+    return;
+  }
+
+  if (order.stripePaymentIntentId) {
+    await releaseStripePaymentForOrder(orderId);
+  }
 }

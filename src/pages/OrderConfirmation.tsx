@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import type { ShippingAddress } from '../types';
@@ -17,6 +17,9 @@ interface OrderResponse {
   subtotal?: number;
   shippingFee?: number;
   shippingAddress?: ShippingAddress;
+  paymentMethod?: string | null;
+  stripePaymentIntentId?: string | null;
+  paypalOrderId?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,7 +53,6 @@ export default function OrderConfirmation() {
   const [order, setOrder] = useState<OrderResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const confirmAttempted = useRef(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -59,18 +61,32 @@ export default function OrderConfirmation() {
     let attempts = 0;
     const maxAttempts = 15;
 
-    const tryConfirmPayment = async () => {
-      if (confirmAttempted.current) return;
-      confirmAttempted.current = true;
+    const tryConfirmPayment = async (orderData: OrderResponse) => {
+      if (orderData.status && orderData.status !== 'pendiente_pago') {
+        return;
+      }
+
+      const isPayPal =
+        orderData.paymentMethod === 'paypal' || Boolean(orderData.paypalOrderId);
+      const isStripe =
+        orderData.paymentMethod === 'stripe' ||
+        Boolean(orderData.stripePaymentIntentId) ||
+        (!orderData.paymentMethod && !orderData.paypalOrderId);
+
       try {
-        await api.post('/api/payments/stripe/confirm', { orderId });
+        if (isPayPal) {
+          await api.post('/api/payments/paypal/reconcile', { orderId });
+        } else if (isStripe) {
+          await api.post('/api/payments/stripe/confirm', { orderId });
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : '';
         const benign =
           message.includes('Pago aún en proceso') ||
           message.includes('pagado') ||
           message.includes('reembolsado') ||
-          message.includes('reembolso');
+          message.includes('reembolso') ||
+          message.includes('No hay pago');
         if (!benign && active) {
           setError(message || 'No se pudo confirmar el pago');
         }
@@ -80,12 +96,16 @@ export default function OrderConfirmation() {
     const load = async () => {
       try {
         setLoading(true);
-        await tryConfirmPayment();
         const data = await api.get<OrderResponse>(`/api/orders/${orderId}`);
         if (!active) return;
-        setOrder(data);
 
-        if (data.status && !TERMINAL_STATUSES.has(data.status) && attempts < maxAttempts) {
+        await tryConfirmPayment(data);
+
+        const refreshed = await api.get<OrderResponse>(`/api/orders/${orderId}`);
+        if (!active) return;
+        setOrder(refreshed);
+
+        if (refreshed.status && !TERMINAL_STATUSES.has(refreshed.status) && attempts < maxAttempts) {
           attempts += 1;
           setTimeout(() => {
             if (active) void load();

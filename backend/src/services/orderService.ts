@@ -43,6 +43,8 @@ export async function createOrder(
     deliveryMethod: 'domicilio',
     paymentMethod: null,
     stripePaymentIntentId: null,
+    paypalOrderId: null,
+    paypalCaptureId: null,
     paidAt: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -120,6 +122,8 @@ export async function preparePendingOrderPayment(orderId: string, userId: string
   const previousTotal = typeof data.total === 'number' ? data.total : 0;
   const previousPaymentIntentId =
     typeof data.stripePaymentIntentId === 'string' ? data.stripePaymentIntentId : null;
+  const previousPayPalOrderId =
+    typeof data.paypalOrderId === 'string' ? data.paypalOrderId : null;
   const itemsChanged = orderItemsChanged(currentItems, items);
   const totalChanged = previousTotal !== total;
   const updatedAt = new Date().toISOString();
@@ -135,6 +139,13 @@ export async function preparePendingOrderPayment(orderId: string, userId: string
 
     if (totalChanged && previousPaymentIntentId) {
       updatePayload.stripePaymentIntentId = null;
+    }
+
+    if (totalChanged && previousPayPalOrderId) {
+      updatePayload.paypalOrderId = null;
+      if (data.paymentMethod === 'paypal') {
+        updatePayload.paymentMethod = null;
+      }
     }
 
     await orderRef.update(updatePayload);
@@ -154,8 +165,9 @@ export async function preparePendingOrderPayment(orderId: string, userId: string
       status: 'pendiente_pago' as const,
       shippingAddress: data.shippingAddress,
       deliveryMethod: data.deliveryMethod,
-      paymentMethod: data.paymentMethod ?? null,
+      paymentMethod: totalChanged && data.paymentMethod === 'paypal' ? null : (data.paymentMethod ?? null),
       stripePaymentIntentId: totalChanged ? null : (previousPaymentIntentId ?? null),
+      paypalOrderId: totalChanged ? null : (previousPayPalOrderId ?? null),
       paidAt: data.paidAt ?? null,
       createdAt: data.createdAt,
       updatedAt,
@@ -167,14 +179,15 @@ export async function preparePendingOrderPayment(orderId: string, userId: string
     },
     totalChanged,
     previousPaymentIntentId: totalChanged ? previousPaymentIntentId : null,
+    previousPayPalOrderId: totalChanged ? previousPayPalOrderId : null,
   };
 }
 
 /** Marca el pedido como pagado y descuenta stock (idempotente). */
 export async function fulfillPaidOrder(
   orderId: string,
-  paymentIntentId: string,
-  paymentMethod: 'stripe' = 'stripe',
+  paymentReferenceId: string,
+  paymentMethod: 'stripe' | 'paypal' = 'stripe',
 ) {
   const db = getAdminDb();
   const orderRef = db.collection('orders').doc(orderId);
@@ -188,6 +201,8 @@ export async function fulfillPaidOrder(
     const order = orderSnap.data() as {
       status?: string;
       stripePaymentIntentId?: string | null;
+      paypalCaptureId?: string | null;
+      paypalOrderId?: string | null;
       items?: Array<{
         productId: string;
         selectedSize: string;
@@ -196,8 +211,13 @@ export async function fulfillPaidOrder(
       }>;
     };
 
-    if (order.status === 'pagado' && order.stripePaymentIntentId === paymentIntentId) {
-      return { id: orderId, status: 'pagado' as const, alreadyFulfilled: true };
+    if (order.status === 'pagado') {
+      if (paymentMethod === 'stripe' && order.stripePaymentIntentId === paymentReferenceId) {
+        return { id: orderId, status: 'pagado' as const, alreadyFulfilled: true };
+      }
+      if (paymentMethod === 'paypal' && order.paypalCaptureId === paymentReferenceId) {
+        return { id: orderId, status: 'pagado' as const, alreadyFulfilled: true };
+      }
     }
 
     if (order.status !== 'pendiente_pago') {
@@ -236,13 +256,20 @@ export async function fulfillPaidOrder(
     }
 
     const paidAt = new Date().toISOString();
-    transaction.update(orderRef, {
+    const paidUpdate: Record<string, unknown> = {
       status: 'pagado',
       paymentMethod,
-      stripePaymentIntentId: paymentIntentId,
       paidAt,
       updatedAt: paidAt,
-    });
+    };
+
+    if (paymentMethod === 'stripe') {
+      paidUpdate.stripePaymentIntentId = paymentReferenceId;
+    } else {
+      paidUpdate.paypalCaptureId = paymentReferenceId;
+    }
+
+    transaction.update(orderRef, paidUpdate);
 
     return { id: orderId, status: 'pagado' as const, alreadyFulfilled: false };
   });
@@ -268,6 +295,7 @@ export async function setOrderPaymentIntentId(orderId: string, userId: string, p
 
   await orderRef.update({
     stripePaymentIntentId: paymentIntentId,
+    paymentMethod: 'stripe',
     updatedAt: new Date().toISOString(),
   });
 
