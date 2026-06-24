@@ -242,6 +242,32 @@ Documentación completa de endpoints, modelo de datos y middleware: **[backend/R
 - **Paleta:** negro `#0a0a0a`, dorado `#d4af37`, crema `#f5e6c8`
 - **Tipografía:** Fraunces
 
+## Ramas y despliegue
+
+| Rama | Uso |
+|------|-----|
+| `main` | Producción. Solo recibe merges estables; es la que debe desplegar el hosting. |
+| `develop` | Integración. Rama base para el trabajo diario. |
+| `feature/*`, `fix/*` | Tareas concretas; se abren desde `develop` y vuelven a `develop` vía PR. |
+
+### Flujo de trabajo
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/mi-cambio
+
+# ... commits ...
+
+git push -u origin feature/mi-cambio
+# Abrir PR: feature/mi-cambio → develop
+
+# Cuando quieras publicar en producción:
+# Abrir PR: develop → main
+```
+
+Configura el hosting para que **solo despliegue `main`** en producción. Opcional: un entorno de preview/staging desde `develop`.
+
 ## Documentación adicional
 
 - [backend/README.md](./backend/README.md) — API, Firestore, scripts, seguridad
