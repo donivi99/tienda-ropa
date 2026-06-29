@@ -171,8 +171,14 @@ Express sirve la API y el build de Vite (`frontend/dist`) en un solo puerto (300
 En la raíz del monorepo también puedes usar `npm run build` y `npm start` para orquestar ambos.
 
 Variables de entorno en producción:
-- Frontend: todas las `VITE_*` en la plataforma de hosting estática.
-- Backend: `backend/.env` o variables del proveedor (secretos, Firebase Admin, Stripe, PayPal).
+- Frontend (Vercel): todas las `VITE_*`; `VITE_API_URL` = URL pública del backend en Railway (sin `/` final).
+- Backend (Railway): secretos Firebase Admin, Stripe, PayPal y **`CORS_ORIGIN`** con la URL de Vercel (y local si aplica), separadas por coma:
+
+```env
+CORS_ORIGIN=http://localhost:3001,https://tu-app.vercel.app
+```
+
+Sin barra `/` al final de cada URL.
 
 ## Stack
 

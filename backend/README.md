@@ -55,6 +55,8 @@ Copia `backend/.env.example` y rellena los valores:
 ```bash
 PORT=3000
 CORS_ORIGIN=http://localhost:3001
+# Producción (Vercel + Railway): varios orígenes separados por coma, sin / final
+# CORS_ORIGIN=http://localhost:3001,https://tu-app.vercel.app
 
 FIREBASE_PROJECT_ID=tu-proyecto-id
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@tu-proyecto.iam.gserviceaccount.com
@@ -362,7 +364,7 @@ Ejecutar desde `backend/` o con `npm run <script>` desde la raíz del monorepo.
 
 - **Helmet** con CSP explícita (dominios Stripe y PayPal en checkout)
 - **Rate limiting** global (100 req/15 min) + límites en `/check-email` y `/contact`
-- **CORS** restringido a `CORS_ORIGIN`
+- **CORS** restringido a los orígenes de `CORS_ORIGIN` (varios valores separados por coma)
 - **Firestore rules** (`../firestore.rules`): lectura pública solo en `products`; escrituras al cliente denegadas
 - El storefront lee `products` desde el cliente; usuarios, pedidos y writes sensibles solo vía esta API
 
