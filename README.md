@@ -171,8 +171,14 @@ Express sirve la API y el build de Vite (`frontend/dist`) en un solo puerto (300
 En la raíz del monorepo también puedes usar `npm run build` y `npm start` para orquestar ambos.
 
 Variables de entorno en producción:
-- Frontend: todas las `VITE_*` en la plataforma de hosting estática.
-- Backend: `backend/.env` o variables del proveedor (secretos, Firebase Admin, Stripe, PayPal).
+- Frontend (Vercel): todas las `VITE_*`; `VITE_API_URL` = URL pública del backend en Railway (sin `/` final).
+- Backend (Railway): secretos Firebase Admin, Stripe, PayPal y **`CORS_ORIGIN`** con la URL de Vercel (y local si aplica), separadas por coma:
+
+```env
+CORS_ORIGIN=http://localhost:3001,https://tu-app.vercel.app
+```
+
+Sin barra `/` al final de cada URL.
 
 ## Stack
 
@@ -241,6 +247,32 @@ Documentación completa de endpoints, modelo de datos y middleware: **[backend/R
 
 - **Paleta:** negro `#0a0a0a`, dorado `#d4af37`, crema `#f5e6c8`
 - **Tipografía:** Fraunces
+
+## Ramas y despliegue
+
+| Rama | Uso |
+|------|-----|
+| `main` | Producción. Solo recibe merges estables; es la que debe desplegar el hosting. |
+| `develop` | Integración. Rama base para el trabajo diario. |
+| `feature/*`, `fix/*` | Tareas concretas; se abren desde `develop` y vuelven a `develop` vía PR. |
+
+### Flujo de trabajo
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/mi-cambio
+
+# ... commits ...
+
+git push -u origin feature/mi-cambio
+# Abrir PR: feature/mi-cambio → develop
+
+# Cuando quieras publicar en producción:
+# Abrir PR: develop → main
+```
+
+Configura el hosting para que **solo despliegue `main`** en producción. Opcional: un entorno de preview/staging desde `develop`.
 
 ## Documentación adicional
 

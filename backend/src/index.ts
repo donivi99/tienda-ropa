@@ -84,7 +84,12 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:3001', credentials: true }));
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3001')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({ origin: corsOrigins, credentials: true }));
 
 // Webhooks: cuerpo raw para verificar firma (antes de express.json)
 app.post(
