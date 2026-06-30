@@ -84,12 +84,16 @@ app.use(helmet({
     },
   },
 }));
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3001')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cors({
+  origin: [
+    'http://localhost:3001',
+    'http://localhost:3000',
+    'https://tienda-ropa-jet.vercel.app',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Webhooks: cuerpo raw para verificar firma (antes de express.json)
 app.post(

@@ -172,13 +172,7 @@ En la raíz del monorepo también puedes usar `npm run build` y `npm start` para
 
 Variables de entorno en producción:
 - Frontend (Vercel): todas las `VITE_*`; `VITE_API_URL` = URL pública del backend en Railway (sin `/` final).
-- Backend (Railway): secretos Firebase Admin, Stripe, PayPal y **`CORS_ORIGIN`** con la URL de Vercel (y local si aplica), separadas por coma:
-
-```env
-CORS_ORIGIN=http://localhost:3001,https://tu-app.vercel.app
-```
-
-Sin barra `/` al final de cada URL.
+- Backend (Railway): secretos Firebase Admin, Stripe, PayPal. CORS permite `localhost:3001`, `localhost:3000` y `https://tienda-ropa-jet.vercel.app` (ver `backend/src/index.ts`).
 
 ## Stack
 
